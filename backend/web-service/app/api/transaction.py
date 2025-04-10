@@ -1,6 +1,8 @@
 """
 API для управления транзакциями
 """
+from datetime import datetime
+
 from flask import request
 from flask_restx import Resource, fields, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -358,3 +360,33 @@ class ExpenseDetail(Resource):
         ExpenseHistory.log_change(expense, 'delete', user_id)
         expense.soft_delete()
         return {'message': f'Запись расхода с ID = {id} успешна удалена'}
+
+
+@api.route('/statistics')
+class StatisticsList(Resource):
+    """Управление статистикой дохода/расхода пользователя"""
+
+    @jwt_required()
+    @api.doc(security='jwt',
+             params={
+                 'start_date': "Дата начала периода (YYYY-MM-DD)",
+                 'end_date': "Дата конца периода (YYYY-MM-DD)",
+                 'type': "Тип транзакций: income/expense"
+             })
+    def get(self):
+        """Получение статистики пользователя"""
+        try:
+            user_id = get_jwt_identity()
+
+            # TODO: валидация дат и типа
+
+            start_date = request.args.get('start_date')
+            end_date = request.args.get('end_date')
+            transaction_type = request.args.get('type')
+
+            # TODO: запросы к БД, построение таблицы
+
+            return
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
