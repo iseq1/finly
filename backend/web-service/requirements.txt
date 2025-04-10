@@ -1,0 +1,26 @@
+# Основные зависимости
+flask
+flask-cors
+flask-restx
+flask-swagger-ui
+flask-SQLAlchemy
+flask-marshmallow
+marshmallow-sqlalchemy
+python-dotenv
+flask-jwt-extended
+python-dateutil
+
+# Зависимости для базы данных
+psycopg2-binary  # для PostgreSQL
+SQLAlchemy
+
+# Зависимости для тестирования
+pytest
+pytest-flask
+pytest-cov  # для измерения покрытия кода
+coverage
+
+# Зависимости для production
+gunicorn
+gevent  # для асинхронной работы
+supervisor  # для управления процессами
