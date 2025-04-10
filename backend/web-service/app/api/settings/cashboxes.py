@@ -96,7 +96,7 @@ class CashboxDetail(Resource):
         return CashboxSchema().dump(cashbox)
     
     @jwt_required()
-    @permission_required('settings.manage')
+    # @permission_required('settings.manage')
     @api.doc(security='jwt')
     @api.expect(cashbox_model)
     def put(self, id):
@@ -134,7 +134,7 @@ class CashboxDetail(Resource):
             return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
 
     @jwt_required()
-    @permission_required('settings.manage')
+    # @permission_required('settings.manage')
     @api.doc(security='jwt')
     def delete(self, id):
         """Удаление кэш-бокса"""

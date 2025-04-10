@@ -45,7 +45,7 @@ class IncomeList(Resource):
     @jwt_required()
     @api.doc(security='jwt')
     def get(self):
-        """Получения списка всех доходов пользователя"""
+        """Получение списка всех доходов пользователя"""
         user_id = get_jwt_identity()
 
         # Получаем все user_cashbox пользователя
@@ -117,6 +117,7 @@ class IncomeDetail(Resource):
         return IncomeSchema().dump(income)
 
     @jwt_required()
+    # @permission_required('transaction.manage')
     @api.doc(security='jwt')
     @api.expect(income_model)
     def put(self, id):
@@ -177,6 +178,7 @@ class IncomeDetail(Resource):
             return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
 
     @jwt_required()
+    # @permission_required('transaction.manage')
     @api.doc(security='jwt')
     def delete(self, id):
         """Удаление конкретной записи дохода"""
@@ -196,3 +198,163 @@ class IncomeDetail(Resource):
         income.soft_delete()
         return {'message': f'Запись дохода с ID = {id} успешна удалена'}
 
+
+@api.route('/expense')
+class ExpenseList(Resource):
+    """Управление расходами"""
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    def get(self):
+        """Получение списка всех расходов пользователя"""
+        user_id = get_jwt_identity()
+
+        # Получаем все user_cashbox пользователя
+        from app.models.auth import UserCashbox
+        user_cashboxes = UserCashbox.query.filter_by(user_id=user_id, deleted=False).all()
+        user_cashbox_ids = [cashbox.id for cashbox in user_cashboxes]
+
+        # Получаем все расходы пользователя (по полученным user_cashbox_ids и полю deleted)
+        expenses = Expense.query.filter(Expense.user_cashbox_id.in_(user_cashbox_ids), Expense.deleted == False).all()
+        return ExpenseSchema(many=True).dump(expenses)
+
+    @jwt_required()
+    # @permission_required('transaction.manage')
+    @api.doc(security='jwt')
+    @api.expect(expense_model)
+    def post(self):
+        """Создание новой записи расхода"""
+        try:
+            expense_data = ExpenseSchema().load(request.json)
+
+            # Получение кэш-бокса пользователя
+            from app.models.auth import UserCashbox
+            user_cashbox = UserCashbox.query.filter_by(id=expense_data.user_cashbox_id).first()
+
+            # Проверка корректности указанного пользовательского кэш-бокса
+            if not user_cashbox:
+                return {'message': 'Кэш-бокс не найден'}, 404
+
+            # Сохранение старых данных для истории
+            old_data = user_cashbox.to_dict()
+
+            # Обновление баланса кэш-бокса
+            user_cashbox.balance -= expense_data.amount
+
+            db.session.add(expense_data)
+            db.session.commit()
+
+            # Логирование изменений
+            from app.models.transaction import ExpenseHistory
+            user_id = get_jwt_identity()
+            ExpenseHistory.log_change(expense_data, 'create', user_id)
+
+            # Логирование изменений
+            from app.models.auth import UserCashboxHistory
+            changes = {k: serialize_value(v) for k, v in user_cashbox.to_dict().items() if old_data.get(k) != v}
+            UserCashboxHistory.log_change(user_cashbox, 'update', user_id, changes)
+
+            return {
+                'message': 'Новая запись расхода успешна создана',
+                'second_message': 'Данные пользовательского кэш-бокса обновлены',
+                'expense': ExpenseSchema().dump(expense_data)
+            }
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+
+@api.route('/expense/<int:id>')
+class ExpenseDetail(Resource):
+    """Управление конкретной записью расхода пользователя"""
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    def get(self, id):
+        """Получение информации о конкретной записи расхода"""
+        expense = Expense.query.get_or_404(id)
+        # TODO: need to return full expense information, including all info about cashbox, provider, type and categories
+
+        return ExpenseSchema().dump(expense)
+
+    @jwt_required()
+    # @permission_required('transaction.manage')
+    @api.doc(security='jwt')
+    @api.expect(expense_model)
+    def put(self, id):
+        """Обновление конкретной записи расхода"""
+        try:
+
+            expense = Expense.query.get_or_404(id)
+            expense_data = ExpenseSchema().load(request.json)
+            user_id = get_jwt_identity()
+
+            # Сохранение старых данных для истории
+            old_data = expense.to_dict()
+            old_user_cashbox_id = expense.user_cashbox_id
+            old_amount = expense.amount
+
+            # Случай когда пользователь изменил кэш-бокс -> изменяется баланс старого и нового кэш-боксов
+            if expense_data.user_cashbox_id != old_user_cashbox_id:
+                from app.models.auth import UserCashbox
+                old_user_cashbox = UserCashbox.query.get_or_404(old_user_cashbox_id)
+                new_user_cashbox = UserCashbox.query.get_or_404(expense_data.user_cashbox_id)
+
+                old_user_cashbox.balance += old_amount
+                new_user_cashbox.balance -= expense_data.amount
+
+                # Логирование изменений баланса
+                from app.models.auth import UserCashboxHistory
+                UserCashboxHistory.log_change(old_user_cashbox, 'update', user_id, {'balance': f'{old_user_cashbox.balance}'})
+                UserCashboxHistory.log_change(new_user_cashbox, 'update', user_id, {'balance': f'{new_user_cashbox.balance}'})
+
+            # Случай когда пользователь изменил сумму расхода -> изменяется баланс текущего кэш-бокса
+            elif expense_data.amount != old_amount:
+                from app.models.auth import UserCashbox
+                user_cashbox = UserCashbox.query.get_or_404(old_user_cashbox_id)
+                user_cashbox.balance += (old_amount - expense_data.amount)
+
+                # Логирование изменений баланса
+                from app.models.auth import UserCashboxHistory
+                UserCashboxHistory.log_change(user_cashbox, 'update', user_id, {'balance': f'{user_cashbox.balance}'})
+
+            # Обновляем поля
+            for field, value in expense_data.__dict__.items():
+                if field != '_sa_instance_state':
+                    setattr(expense, field, value)
+
+            db.session.commit()
+
+            # Логирование изменений
+            from app.models.transaction import ExpenseHistory
+            changes = {k: serialize_value(v) for k, v in expense.to_dict().items() if old_data.get(k) != v}
+            ExpenseHistory.log_change(expense, 'update', user_id, changes)
+
+            return {
+                'message': 'Запись расхода успешно обновлена',
+                'expense': ExpenseSchema().dump(expense)
+            }
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+    @jwt_required()
+    # @permission_required('transaction.manage')
+    @api.doc(security='jwt')
+    def delete(self, id):
+        """Удаление конкретной записи расхода"""
+        expense = Expense.query.get_or_404(id)
+
+        from app.models.auth import UserCashbox
+        user_cashbox = UserCashbox.query.get_or_404(expense.user_cashbox_id)
+
+        user_cashbox.balance += expense.amount
+
+        # Логирование изменений
+        from app.models.auth import UserCashboxHistory
+        user_id = get_jwt_identity()
+        UserCashboxHistory.log_change(user_cashbox, 'update', user_id, {'balance': f'{user_cashbox.balance}'})
+        from app.models.transaction import ExpenseHistory
+        ExpenseHistory.log_change(expense, 'delete', user_id)
+        expense.soft_delete()
+        return {'message': f'Запись расхода с ID = {id} успешна удалена'}
