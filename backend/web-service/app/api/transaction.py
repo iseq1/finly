@@ -364,29 +364,140 @@ class ExpenseDetail(Resource):
 
 @api.route('/statistics')
 class StatisticsList(Resource):
-    """Управление статистикой дохода/расхода пользователя"""
+    """Управление статистикой транзакций пользователя"""
 
     @jwt_required()
     @api.doc(security='jwt',
              params={
                  'start_date': "Дата начала периода (YYYY-MM-DD)",
                  'end_date': "Дата конца периода (YYYY-MM-DD)",
-                 'type': "Тип транзакций: income/expense"
+                 'type': "Тип транзакций: income/expense",
+                 'include_empty_categories': "Включать категории без транзакций (true/false)"
              })
     def get(self):
         """Получение статистики пользователя"""
         try:
+            from datetime import datetime, timedelta
+            def_start_date = datetime.utcnow().replace(day=1).strftime('%Y-%m-%d')
+            def_end_date = ((datetime.utcnow().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(seconds=1)).strftime('%Y-%m-%d')
+
+            # Получение данных из запроса
+            start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'
+            end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'
+            transaction_type = request.args.get('type', default='income')
+            include_empty = request.args.get('include_empty_categories', default='false').lower() == 'true'
             user_id = get_jwt_identity()
 
-            # TODO: валидация дат и типа
+            # Валидация данных
+            from app.schemas.base import DateRangeSchema
+            DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
+            if transaction_type not in ['income', 'expense']:
+                raise ValidationError('Некорректно указан type транзакции')
 
-            start_date = request.args.get('start_date')
-            end_date = request.args.get('end_date')
-            transaction_type = request.args.get('type')
+            from app.models.auth import UserCashbox
+            from app.models.transaction import Income, Expense
+            from app.models.settings.categories import Category
 
-            # TODO: запросы к БД, построение таблицы
+            # Получение всех пользовательских кэш-боксов пользователя
+            user_cashboxes = UserCashbox.query.filter_by(user_id=user_id, deleted=False).all()
+            user_cashbox_ids = [cb.id for cb in user_cashboxes]
 
-            return
+            # Получение всех категорий связанных с
+
+            # Запрос транзакций пользователя
+            if transaction_type == 'income':
+                query = Income.query.filter(Income.user_cashbox_id.in_(user_cashbox_ids), Income.deleted == False)
+            else:
+                query = Expense.query.filter(Expense.user_cashbox_id.in_(user_cashbox_ids), Expense.deleted == False)
+
+            if start_date:
+                query = query.filter(Income.transacted_at >= start_date if transaction_type == 'income' else Expense.transacted_at >= start_date)
+            if end_date:
+                query = query.filter(Income.transacted_at <= end_date if transaction_type == 'income' else Expense.transacted_at <= end_date)
+
+            transactions = query.all()
+
+            statistics = {}
+
+            # Агрегация транзакций по провайдерам
+            for transaction in transactions:
+                category_name = transaction.category.name
+                cashbox_name = transaction.user_cashbox.cashbox.name
+                provider_name = transaction.user_cashbox.cashbox.provider.name
+                amount = transaction.amount
+
+                if category_name not in statistics:
+                    statistics[category_name] = {}
+                if provider_name not in statistics[category_name]:
+                    statistics[category_name][provider_name] = 0
+
+                statistics[category_name][provider_name] += amount
+
+            # Добавление категорий без транзакций
+            if include_empty:
+                if transaction_type == 'income':
+                    # TODO: make a division of categories according to the type of transaction
+                    all_categories = Category.query.filter_by().all()
+                else:
+                    # TODO: make a division of categories according to the type of transaction
+                    all_categories = Category.query.filter_by().all()
+                for category in all_categories:
+                    category_name = category.name
+                    if category_name not in statistics:
+                        statistics[category_name] = {}
+                    for cb in user_cashboxes:
+                        provider_name = cb.cashbox.provider.name  #
+                        if provider_name not in statistics[category_name]:
+                            statistics[category_name][provider_name] = 0
+
+            # Подсчет итогов
+            category_totals = {}
+            provider_totals = {}
+
+            for category, providers in statistics.items():
+                category_totals[category] = sum(providers.values())
+                for provider, amount in providers.items():
+                    provider_totals[provider] = provider_totals.get(provider, 0) + amount
+
+            return {
+                'message': 'Статистика успешно получена',
+                'statistics': statistics,
+                'category_totals': category_totals,
+                'provider_totals': provider_totals  # Используем итог по провайдерам
+            }, 200
 
         except ValidationError as e:
             return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+
+@api.route('/statistics/category/<int:id>')
+class StatisticsCategoryList(Resource):
+    """Управление статистикой транзакций пользователя по категории"""
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    def get(self, id):
+        """Получение всех транзакций в категории"""
+        pass
+
+
+@api.route('/statistics/provider/<int:id>')
+class StatisticsCashboxList(Resource):
+    """Управление статистикой транзакций пользователя по кэш-боксам провайдера"""
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    def get(self, id):
+        """Получение всех транзакций в кэш-боксах провайдера"""
+        pass
+
+
+@api.route('/statistics/details/<int:id>')
+class StatisticsDetailsList(Resource):
+    """Управление статистикой транзакций пользователя по конкретной записи"""
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    def get(self, id):
+        """Получение дополнительной информации по транзакциям"""
+        pass
