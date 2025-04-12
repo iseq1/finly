@@ -1,14 +1,13 @@
 """
 API для управления транзакциями
 """
-from datetime import datetime
-
+from collections import defaultdict
 from flask import request
 from flask_restx import Resource, fields, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
-from app.models.transaction import Income, IncomeHistory, Expense, ExpenseHistory
-from app.schemas.transaction import IncomeSchema, IncomeHistorySchema, ExpenseSchema, ExpenseHistorySchema
+from app.models.transaction import Income, Expense
+from app.schemas.transaction import IncomeSchema, ExpenseSchema
 from app.utils.auth import permission_required
 from app.utils.helpers import serialize_value
 from app.extensions import db
@@ -402,8 +401,6 @@ class StatisticsList(Resource):
             user_cashboxes = UserCashbox.query.filter_by(user_id=user_id, deleted=False).all()
             user_cashbox_ids = [cb.id for cb in user_cashboxes]
 
-            # Получение всех категорий связанных с
-
             # Запрос транзакций пользователя
             if transaction_type == 'income':
                 query = Income.query.filter(Income.user_cashbox_id.in_(user_cashbox_ids), Income.deleted == False)
@@ -422,7 +419,6 @@ class StatisticsList(Resource):
             # Агрегация транзакций по провайдерам
             for transaction in transactions:
                 category_name = transaction.category.name
-                cashbox_name = transaction.user_cashbox.cashbox.name
                 provider_name = transaction.user_cashbox.cashbox.provider.name
                 amount = transaction.amount
 
@@ -473,10 +469,135 @@ class StatisticsCategoryList(Resource):
     """Управление статистикой транзакций пользователя по категории"""
 
     @jwt_required()
-    @api.doc(security='jwt')
+    @api.doc(security='jwt',
+             params={
+                 'start_date': "Дата начала периода (YYYY-MM-DD)",
+                 'end_date': "Дата конца периода (YYYY-MM-DD)",
+                 'type': "Тип транзакций: income/expense",
+                 'sort_by': "Поле для сортировки (amount/transacted_at/comment/subcategory/cashbox)",
+                 'order': "Направление сортировки (asc/desc)"
+             })
     def get(self, id):
         """Получение всех транзакций в категории"""
         pass
+
+        try:
+            from datetime import datetime, timedelta
+            def_start_date = datetime.utcnow().replace(day=1).strftime('%Y-%m-%d')
+            def_end_date = ((datetime.utcnow().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(seconds=1)).strftime('%Y-%m-%d')
+
+            # Получение данных из запроса
+            start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'
+            end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'
+            transaction_type = request.args.get('type', default='income')
+            sort_by = request.args.get('sort_by', default='amount')  # Поле для сортировки (по умолчанию - сумма)
+            order = request.args.get('order', default='asc')  # Направление сортировки (по умолчанию - по возрастанию)
+            user_id = get_jwt_identity()
+
+            # Валидация данных
+            from app.schemas.base import DateRangeSchema
+            DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
+            if transaction_type not in ['income', 'expense']:
+                raise ValidationError('Некорректно указан type транзакции')
+
+            from app.models.auth import UserCashbox
+            from app.models.transaction import Income, Expense
+            from app.models.settings.categories import Category, Subcategory
+
+            # Получение всех пользовательских кэш-боксов пользователя
+            user_cashboxes = UserCashbox.query.filter_by(user_id=user_id, deleted=False).all()
+            user_cashbox_ids = [cb.id for cb in user_cashboxes]
+
+            # Запрос транзакций пользователя
+            if transaction_type == 'income':
+                query = Income.query.filter(Income.user_cashbox_id.in_(user_cashbox_ids), Income.deleted == False, Income.category_id == id)
+            else:
+                query = Expense.query.filter(Expense.user_cashbox_id.in_(user_cashbox_ids), Expense.deleted == False, Expense.category_id == id)
+
+            if start_date:
+                query = query.filter(
+                    Income.transacted_at >= start_date if transaction_type == 'income' else Expense.transacted_at >= start_date)
+            if end_date:
+                query = query.filter(
+                    Income.transacted_at <= end_date if transaction_type == 'income' else Expense.transacted_at <= end_date)
+
+            transactions = query.all()
+
+            # Сортировка
+            if sort_by == 'amount':
+                transactions.sort(key=lambda x: x.amount, reverse=(order == 'desc'))
+            elif sort_by == 'transacted_at':
+                transactions.sort(key=lambda x: x.transacted_at, reverse=(order == 'desc'))
+            elif sort_by == 'comment':
+                transactions.sort(key=lambda x: x.comment, reverse=(order == 'desc'))
+            elif sort_by == 'subcategory':
+                transactions.sort(key=lambda x: x.subcategory.name, reverse=(order == 'desc'))
+            elif sort_by == 'cashbox':
+                transactions.sort(key=lambda x: x.user_cashbox.cashbox.name, reverse=(order == 'desc'))
+
+            # Группировка транзакций по подкатегориям
+            subcat_data = defaultdict(lambda: {"total": 0, "transactions": []})
+
+            for item in transactions:
+                subcategory = item.subcategory
+                user_cashbox = item.user_cashbox
+                cashbox = user_cashbox.cashbox
+                provider = cashbox.provider
+
+                subcat_data[subcategory.id]["subcategory_name"] = subcategory.name
+                subcat_data[subcategory.id]["total"] += item.amount
+
+                if transaction_type == 'income':
+                    subcat_data[subcategory.id]["transactions"].append({
+                        "id": item.id,
+                        "amount": item.amount,
+                        "comment": item.comment,
+                        "transacted_at": item.transacted_at.isoformat(),
+                        "source": item.source,
+                        "cashbox": {
+                            "user_cashbox_id": user_cashbox.id,
+                            "cashbox_name": cashbox.name,
+                            "provider_name": provider.name
+                        }
+                    })
+                else:
+                    subcat_data[subcategory.id]["transactions"].append({
+                        "id": item.id,
+                        "amount": item.amount,
+                        "comment": item.comment,
+                        "transacted_at": item.transacted_at.isoformat(),
+                        "vendor": item.vendor,
+                        "location": item.location,
+                        "cashbox": {
+                            "user_cashbox_id": user_cashbox.id,
+                            "cashbox_name": cashbox.name,
+                            "provider_name": provider.name
+                        }
+                    })
+
+            # Сборка финального списка
+            statistics = []
+            for subcat_id, data in subcat_data.items():
+                statistics.append({
+                    "subcategory_id": subcat_id,
+                    "subcategory_name": data["subcategory_name"],
+                    "total": data["total"],
+                    "transactions": data["transactions"]
+                })
+
+            # Получение имени категории
+            category = Category.query.get(id)
+
+            return {
+                "message": "Детализация по категории успешно получена",
+                "category_id": id,
+                "category_name": category.name if category else None,
+                "type": transaction_type,
+                "statistics": statistics
+            }, 200
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
 
 
 @api.route('/statistics/provider/<int:id>')
