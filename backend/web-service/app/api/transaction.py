@@ -385,7 +385,7 @@ class StatisticsList(Resource):
             start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'
             end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'
             transaction_type = request.args.get('type', default='income')
-            include_empty = request.args.get('include_empty_categories', default='false').lower() == 'true'
+            include_empty = request.args.get('include_empty_categories', default='true').lower() == 'true'
             user_id = get_jwt_identity()
 
             # Валидация данных
@@ -436,11 +436,9 @@ class StatisticsList(Resource):
             # Добавление категорий без транзакций
             if include_empty:
                 if transaction_type == 'income':
-                    # TODO: make a division of categories according to the type of transaction
-                    all_categories = Category.query.filter_by().all()
+                    all_categories = [item for item in Category.query.filter_by().all() if item.type == 'income']
                 else:
-                    # TODO: make a division of categories according to the type of transaction
-                    all_categories = Category.query.filter_by().all()
+                    all_categories = [item for item in Category.query.filter_by().all() if item.type == 'expense']
                 for category in all_categories:
                     category_name = category.name
                     if category_name not in statistics:
