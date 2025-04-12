@@ -2,6 +2,8 @@
 API для управления транзакциями
 """
 from collections import defaultdict
+from locale import currency
+
 from flask import request
 from flask_restx import Resource, fields, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -371,7 +373,9 @@ class StatisticsList(Resource):
                  'start_date': "Дата начала периода (YYYY-MM-DD)",
                  'end_date': "Дата конца периода (YYYY-MM-DD)",
                  'type': "Тип транзакций: income/expense",
-                 'include_empty_categories': "Включать категории без транзакций (true/false)"
+                 'include_empty_categories': "Включать категории без транзакций (true/false)",
+                 'sort_by': "Поле для сортировки (category)",
+                 'order': "Направление сортировки (asc/desc)"
              })
     def get(self):
         """Получение статистики пользователя"""
@@ -381,11 +385,15 @@ class StatisticsList(Resource):
             def_end_date = ((datetime.utcnow().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(seconds=1)).strftime('%Y-%m-%d')
 
             # Получение данных из запроса
-            start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'
-            end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'
-            transaction_type = request.args.get('type', default='income')
-            include_empty = request.args.get('include_empty_categories', default='true').lower() == 'true'
-            user_id = get_jwt_identity()
+            start_date = request.args.get('start_date',
+                                          default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
+            end_date = request.args.get('end_date',
+                                        default=def_end_date) + 'T23:59:59.999Z'  # Конец диапазона временного интервала
+            include_empty = request.args.get('include_empty_categories', default='true').lower() == 'true' # Учитывать ли пустые ячейки
+            transaction_type = request.args.get('type', default='income')  # Тип транзакции
+            sort_by = request.args.get('sort_by', default='amount')  # Поле для сортировки (по умолчанию - сумма)
+            order = request.args.get('order', default='asc')  # Направление сортировки (по умолчанию - по возрастанию)
+            user_id = get_jwt_identity()  # ID-пользователя
 
             # Валидация данных
             from app.schemas.base import DateRangeSchema
@@ -413,6 +421,10 @@ class StatisticsList(Resource):
                 query = query.filter(Income.transacted_at <= end_date if transaction_type == 'income' else Expense.transacted_at <= end_date)
 
             transactions = query.all()
+
+            # Сортировка
+            if sort_by == 'category':
+                transactions.sort(key=lambda x: x.category.name, reverse=(order == 'desc'))
 
             statistics = {}
 
@@ -479,20 +491,20 @@ class StatisticsCategoryList(Resource):
              })
     def get(self, id):
         """Получение всех транзакций в категории"""
-        pass
-
         try:
             from datetime import datetime, timedelta
             def_start_date = datetime.utcnow().replace(day=1).strftime('%Y-%m-%d')
             def_end_date = ((datetime.utcnow().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(seconds=1)).strftime('%Y-%m-%d')
 
             # Получение данных из запроса
-            start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'
-            end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'
-            transaction_type = request.args.get('type', default='income')
+            start_date = request.args.get('start_date',
+                                          default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
+            end_date = request.args.get('end_date',
+                                        default=def_end_date) + 'T23:59:59.999Z'  # Конец диапазона временного интервала
+            transaction_type = request.args.get('type', default='income')  # Тип транзакции
             sort_by = request.args.get('sort_by', default='amount')  # Поле для сортировки (по умолчанию - сумма)
             order = request.args.get('order', default='asc')  # Направление сортировки (по умолчанию - по возрастанию)
-            user_id = get_jwt_identity()
+            user_id = get_jwt_identity()  # ID-пользователя
 
             # Валидация данных
             from app.schemas.base import DateRangeSchema
@@ -605,10 +617,118 @@ class StatisticsCashboxList(Resource):
     """Управление статистикой транзакций пользователя по кэш-боксам провайдера"""
 
     @jwt_required()
-    @api.doc(security='jwt')
+    @api.doc(security='jwt',
+             params={
+                 'start_date': "Дата начала периода (YYYY-MM-DD)",
+                 'end_date': "Дата конца периода (YYYY-MM-DD)",
+                 'type': "Тип транзакций: income/expense",
+                 'sort_by': "Поле для сортировки (name/currency/description/type_name/total)",
+                 'order': "Направление сортировки (asc/desc)"
+             })
     def get(self, id):
         """Получение всех транзакций в кэш-боксах провайдера"""
-        pass
+        try:
+            from datetime import datetime, timedelta
+            def_start_date = datetime.utcnow().replace(day=1).strftime('%Y-%m-%d')
+            def_end_date = ((datetime.utcnow().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(seconds=1)).strftime('%Y-%m-%d')
+
+            # Получение данных из запроса
+            start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
+            end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'  # Конец диапазона временного интервала
+            transaction_type = request.args.get('type', default='income')  # Тип транзакции
+            sort_by = request.args.get('sort_by', default='amount')  # Поле для сортировки (по умолчанию - сумма)
+            order = request.args.get('order', default='asc')  # Направление сортировки (по умолчанию - по возрастанию)
+            user_id = get_jwt_identity()  # ID-пользователя
+
+            # Валидация данных
+            from app.schemas.base import DateRangeSchema
+            DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
+            if transaction_type not in ['income', 'expense']:
+                raise ValidationError('Некорректно указан type транзакции')
+
+            from app.models.auth import UserCashbox
+            from app.models.transaction import Income, Expense
+            from app.models.settings.cashboxes import Cashbox, CashboxProvider, CashboxType
+
+            # Получение всех пользовательских кэш-боксов пользователя
+            user_cashboxes = UserCashbox.query.filter_by(user_id=user_id, deleted=False).all()
+
+            # Получение всех кэш-боксов пользователя, связанных с этим провайдером
+            provider_cashbox_ids = [cb.id for cb in user_cashboxes if cb.cashbox.provider_id == id]
+
+            # Запрос транзакций пользователя
+            if transaction_type == 'income':
+                query = Income.query.filter(Income.user_cashbox_id.in_(provider_cashbox_ids), Income.deleted == False)
+            else:
+                query = Expense.query.filter(Expense.user_cashbox_id.in_(provider_cashbox_ids), Expense.deleted == False)
+
+            if start_date:
+                query = query.filter(
+                    Income.transacted_at >= start_date if transaction_type == 'income' else Expense.transacted_at >= start_date)
+            if end_date:
+                query = query.filter(
+                    Income.transacted_at <= end_date if transaction_type == 'income' else Expense.transacted_at <= end_date)
+
+            transactions = query.all()
+
+            print(transactions)
+
+            # Сортировка
+            if sort_by == 'name':
+                transactions.sort(key=lambda x: x.user_cashbox.cashbox.name, reverse=(order == 'desc'))
+            elif sort_by == 'currency':
+                transactions.sort(key=lambda x: x.user_cashbox.cashbox.currency, reverse=(order == 'desc'))
+            elif sort_by == 'description':
+                transactions.sort(key=lambda x: x.user_cashbox.cashbox.description, reverse=(order == 'desc'))
+            elif sort_by == 'type_name':
+                transactions.sort(key=lambda x: x.user_cashbox.cashbox.type.name, reverse=(order == 'desc'))
+            elif sort_by == 'total':
+                transactions.sort(key=lambda x: x.subcategory.name, reverse=(order == 'desc'))
+
+            print(transactions)
+
+            # Группировка транзакций по кэш-боксам
+            subcat_data = defaultdict(lambda: {"total": 0, "transactions": []})
+
+            for item in transactions:
+                user_cashbox = item.user_cashbox
+                cashbox = user_cashbox.cashbox
+
+                subcat_data[cashbox.id]["cashbox_name"] = cashbox.name
+                subcat_data[cashbox.id]["cashbox_type"] = cashbox.type.name
+                subcat_data[cashbox.id]["currency"] = cashbox.currency
+                subcat_data[cashbox.id]["description"] = cashbox.description
+                subcat_data[cashbox.id]["icon"] = cashbox.icon
+                subcat_data[cashbox.id]["total"] += item.amount
+
+
+            # Сборка финального списка
+            statistics = []
+            for subcat_id, data in subcat_data.items():
+                statistics.append({
+                    "cashbox_id": subcat_id,
+                    "cashbox_name": data["cashbox_name"],
+                    "cashbox_type": data["cashbox_type"],
+                    "currency": data["currency"],
+                    "description": data["description"],
+                    "icon": data["icon"],
+                    "total": data["total"],
+                    # "transactions": data["transactions"]
+                })
+
+            # Получение провайдера
+            provider = CashboxProvider.query.get_or_404(id)
+
+            return {
+                "message": "Детализация по провайдеру успешно получена",
+                "provider_id": id,
+                "provider_name": provider.name if provider else None,
+                "type": transaction_type,
+                "statistics": statistics
+            }, 200
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
 
 
 @api.route('/statistics/details/<int:id>')
