@@ -20,6 +20,14 @@ class Category(BaseModel):
     # Связи
     subcategories = relationship('Subcategory', back_populates='category')
 
+    @property
+    def type(self):
+        if str(self.code).startswith("21"):
+            return "income"
+        elif str(self.code).startswith("89"):
+            return "expense"
+        return "unknown"
+
     def __repr__(self):
         return f"<Category {self.name}>"
 
