@@ -671,8 +671,6 @@ class StatisticsCashboxList(Resource):
 
             transactions = query.all()
 
-            print(transactions)
-
             # Сортировка
             if sort_by == 'name':
                 transactions.sort(key=lambda x: x.user_cashbox.cashbox.name, reverse=(order == 'desc'))
@@ -684,8 +682,6 @@ class StatisticsCashboxList(Resource):
                 transactions.sort(key=lambda x: x.user_cashbox.cashbox.type.name, reverse=(order == 'desc'))
             elif sort_by == 'total':
                 transactions.sort(key=lambda x: x.subcategory.name, reverse=(order == 'desc'))
-
-            print(transactions)
 
             # Группировка транзакций по кэш-боксам
             subcat_data = defaultdict(lambda: {"total": 0, "transactions": []})
@@ -731,12 +727,131 @@ class StatisticsCashboxList(Resource):
             return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
 
 
-@api.route('/statistics/details/<int:id>')
+@api.route('/statistics/details/<string:id>')
 class StatisticsDetailsList(Resource):
     """Управление статистикой транзакций пользователя по конкретной записи"""
 
     @jwt_required()
-    @api.doc(security='jwt')
+    @api.doc(security='jwt',
+             params={
+                 'start_date': "Дата начала периода (YYYY-MM-DD)",
+                 'end_date': "Дата конца периода (YYYY-MM-DD)",
+                 'type': "Тип транзакций: income/expense",
+                 'sort_by': "Поле для сортировки ()",
+                 'order': "Направление сортировки (asc/desc)"
+             })
     def get(self, id):
         """Получение дополнительной информации по транзакциям"""
-        pass
+        try:
+            from datetime import datetime, timedelta
+            def_start_date = datetime.utcnow().replace(day=1).strftime('%Y-%m-%d')
+            def_end_date = ((datetime.utcnow().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(seconds=1)).strftime('%Y-%m-%d')
+
+            # Получение данных из запроса
+            start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
+            end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'  # Конец диапазона временного интервала
+            transaction_type = request.args.get('type', default='income')  # Тип транзакции
+            sort_by = request.args.get('sort_by', default='amount')  # Поле для сортировки (по умолчанию - сумма)
+            order = request.args.get('order', default='asc')  # Направление сортировки (по умолчанию - по возрастанию)
+            category_id, provider_id = map(int, id.split('-'))
+            user_id = get_jwt_identity()  # ID-пользователя
+
+            # Валидация данных
+            from app.schemas.base import DateRangeSchema
+            DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
+            if transaction_type not in ['income', 'expense']:
+                raise ValidationError('Некорректно указан type транзакции')
+
+            from app.models.auth import UserCashbox
+            from app.models.transaction import Income, Expense
+            from app.models.settings.cashboxes import Cashbox, CashboxProvider, CashboxType
+            from app.models.settings.categories import Category, Subcategory
+
+            # Получение всех пользовательских кэш-боксов пользователя
+            user_cashboxes = UserCashbox.query.filter_by(user_id=user_id, deleted=False).all()
+
+            # Получение кэш-бокса пользователя
+            provider_cashbox_id = [cb.id for cb in user_cashboxes if cb.cashbox.provider_id == provider_id]
+
+            # Получение подкатегорий указанной категории
+            subcategory_ids = [s.id for s in Subcategory.query.filter_by(category_id=category_id).all()]
+
+            # Запрос транзакций пользователя
+            if transaction_type == 'income':
+                query = Income.query.filter(Income.user_cashbox_id.in_(provider_cashbox_id), Income.deleted == False, Income.subcategory_id.in_(subcategory_ids))
+            else:
+                query = Expense.query.filter(Expense.user_cashbox_id.in_(provider_cashbox_id), Expense.deleted == False, Expense.subcategory_id.in_(subcategory_ids))
+
+            if start_date:
+                query = query.filter(
+                    Income.transacted_at >= start_date if transaction_type == 'income' else Expense.transacted_at >= start_date)
+            if end_date:
+                query = query.filter(
+                    Income.transacted_at <= end_date if transaction_type == 'income' else Expense.transacted_at <= end_date)
+
+            transactions = query.all()
+
+            print(transactions)
+
+            # Сортировка
+            # if sort_by == 'name':
+            #     transactions.sort(key=lambda x: x.user_cashbox.cashbox.name, reverse=(order == 'desc'))
+            # elif sort_by == 'currency':
+            #     transactions.sort(key=lambda x: x.user_cashbox.cashbox.currency, reverse=(order == 'desc'))
+
+            subcat_data = defaultdict(lambda: {
+                "subcategory_name": "",
+                "total": 0,
+                "transactions": []
+            })
+
+            for item in transactions:
+                subcat = item.subcategory
+                cashbox = item.user_cashbox.cashbox
+
+                subcat_data[subcat.id]["subcategory_name"] = subcat.name
+                subcat_data[subcat.id]["total"] += item.amount
+                subcat_data[subcat.id]["transactions"].append({
+                    "amount": item.amount,
+                    "date": item.transacted_at.isoformat(),
+                    "cashbox_name": cashbox.name,
+                    "comment": item.comment
+                })
+
+            # Формирование итоговой статистики
+            total_sum = sum([data["total"] for data in subcat_data.values()])
+            statistics = []
+            for subcat_id, data in subcat_data.items():
+                percentage = (data["total"] / total_sum * 100) if total_sum > 0 else 0
+
+                statistics.append({
+                    "subcategory_id": subcat_id,
+                    "subcategory_name": data["subcategory_name"],
+                    "total": data["total"],
+                    "percentage": round(percentage, 2),
+                    "transactions": data["transactions"]
+                })
+
+
+            category = Category.query.get_or_404(category_id)
+            provider = CashboxProvider.query.get_or_404(provider_id)
+
+            return {
+                "message": "Детализация по провайдеру и категории успешно получена",
+                "category_id": category_id,
+                "category_name": category.name if category else None,
+                "provider_id": provider_id,
+                "provider_name": provider.name if provider else None,
+                "type": transaction_type,
+                "statistics": statistics
+            }, 200
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+
+
+
+
+
+
