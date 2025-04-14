@@ -848,10 +848,3 @@ class StatisticsDetailsList(Resource):
 
         except ValidationError as e:
             return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
-
-
-
-
-
-
-
