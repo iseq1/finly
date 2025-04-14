@@ -54,24 +54,28 @@ def register_base_permissions():
     register_permission('user.view')
     register_permission('settings.view')
     register_permission('transaction.view')
+    register_permission('budget.view')
 
     # Разрешения для создания
     register_permission('role.create')
     register_permission('user.create')
     register_permission('settings.create')
     register_permission('transaction.create')
+    register_permission('budget.create')
 
     # Разрешения для обновления
     register_permission('role.update')
     register_permission('user.update')
     register_permission('settings.update')
     register_permission('transaction.update')
+    register_permission('budget.update')
 
     # Разрешения для удаления
     register_permission('role.delete')
     register_permission('user.delete')
     register_permission('settings.delete')
     register_permission('transaction.delete')
+    register_permission('budget.delete')
 
 
 def register_error_handlers(app):
@@ -148,12 +152,14 @@ def register_api_routes(app):
     from app.api.auth import api as auth_api
     from app.api.settings import api as settings_api
     from app.api.transaction import api as transactions_api
+    from app.api.budget import api as budget_api
 
     # Регистрация namespaces без префикса /api, так как он уже добавлен в Api
     api.add_namespace(base_api, path='/base')
     api.add_namespace(auth_api, path='/auth')
     api.add_namespace(settings_api, path='/settings')
     api.add_namespace(transactions_api, path='/transactions')
+    api.add_namespace(budget_api, path='/budget')
 
     # Создание папки для загрузки файлов
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
