@@ -31,7 +31,7 @@ class CashboxSchema(BaseSchema):
         """Проверка корректности наименования кэш-бокса"""
         if len(value) >= 100 or len(value) == 0:
             raise ValidationError("Некорректное наименование кэш-бокса")
-        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z\s]+$', value)):
+        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z\s\-]+$', value)):
             raise ValidationError("Использование недопустимых символов запрещено")
 
     @validates("currency")
@@ -113,7 +113,7 @@ class CashboxProviderSchema(BaseSchema):
         """Проверка корректности наименования провайдера кэш-бокса"""
         if len(value) >= 100 or len(value) == 0:
             raise ValidationError("Некорректное наименование провайдера кэш-бокса")
-        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z\s]+$', value)):
+        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z\s\-]+$', value)):
             raise ValidationError("Использование недопустимых символов запрещено")
 
     @validates("full_name")
@@ -129,7 +129,7 @@ class CashboxProviderSchema(BaseSchema):
         """Проверка корректности основного цвета провайдера"""
         if len(value) != 7:
             raise ValidationError("Цвет должен быть указан в формате hex #xxxxxx")
-        if not bool(re.match(r'^[A-Z0-9#]+$', value)):
+        if not bool(re.match(r'^[A-Za-z0-9#]+$', value)):
             raise ValidationError("Цвет категории указан неверно, используйте hex-формат записи")
 
     @validates("second_color")
@@ -137,7 +137,7 @@ class CashboxProviderSchema(BaseSchema):
         """Проверка корректности запасного цвета провайдера"""
         if len(value) != 7:
             raise ValidationError("Цвет должен быть указан в формате hex #xxxxxx")
-        if not bool(re.match(r'^[A-Z0-9#]+$', value)):
+        if not bool(re.match(r'^[A-Za-z0-9#]+$', value)):
             raise ValidationError("Цвет категории указан неверно, используйте hex-формат записи")
 
     @validates("alt_color")
@@ -145,7 +145,7 @@ class CashboxProviderSchema(BaseSchema):
         """Проверка корректности альтернативного цвета провайдера"""
         if len(value) != 7:
             raise ValidationError("Цвет должен быть указан в формате hex #xxxxxx")
-        if not bool(re.match(r'^[A-Z0-9#]+$', value)):
+        if not bool(re.match(r'^[A-Za-z0-9#]+$', value)):
             raise ValidationError("Цвет категории указан неверно, используйте hex-формат записи")
 
     @validates("second_alt_color")
@@ -153,7 +153,7 @@ class CashboxProviderSchema(BaseSchema):
         """Проверка корректности запасного альтернативного цвета провайдера"""
         if len(value) != 7:
             raise ValidationError("Цвет должен быть указан в формате hex #xxxxxx")
-        if not bool(re.match(r'^[A-Z0-9#]+$', value)):
+        if not bool(re.match(r'^[A-Za-z0-9#]+$', value)):
             raise ValidationError("Цвет категории указан неверно, используйте hex-формат записи")
 
 
