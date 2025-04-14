@@ -92,4 +92,5 @@ MODEL_TO_HISTORY_FIELD = {
     "CashboxProvider": 'cashbox_provider_id',
     "Income": 'income_id',
     "Expense": 'expense_id',
+    "BalanceSnapshot": 'balance_snapshot_id',
 }
