@@ -6,8 +6,8 @@ from flask import request
 from flask_restx import Resource, fields, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
-from app.models.budget import BalanceSnapshot
-from app.schemas.budget import BalanceSnapshotSchema, SnapshotSchema
+from app.models.budget import BalanceSnapshot, Budget
+from app.schemas.budget import BalanceSnapshotSchema, SnapshotSchema, BudgetSchema
 from app.utils.auth import permission_required
 from app.utils.helpers import serialize_value
 from app.extensions import db
@@ -35,7 +35,26 @@ balance_snapshot_model = api.model('BalanceSnapshot', {
 })
 
 
+budget_model = api.model('Budget', {
+    'user_id': fields.Integer(required=True, description='ID-пользователя'),
+    'category_id': fields.Integer(required=True, description='ID-категории'),
+    'subcategory_id': fields.Integer(required=True, description='ID-подкатегории'),
+    'user_cashbox_id': fields.Integer(required=True, description='ID-пользовательского кэш-бокса'),
+    'month': fields.Integer(required=True, description='Месяц'),
+    'year': fields.Integer(required=True, description='Год'),
+    'amount': fields.Float(required=True, description='Планируемая сумма'),
+    'currency': fields.String(required=True, description='Валюта'),
+    'comment': fields.String(required=True, description='Комментарий пользователя'),
+    'is_recurring': fields.Boolean(required=True, description='Повторяется ли каждый месяц'),
+    'is_locked': fields.Boolean(required=True, description='Зафиксирован ли бюджет'),
+})
+
 def get_difference(user_id):
+    """
+    Возвращает суммы доходов и расходов пользователя по его кэш-боксам за текущий месяц.
+    :param user_id: идентификатор пользователя
+    :return: два словаря — с доходами (to_div) и расходами (to_sum) по user_cashbox_id
+    """
     current_year = datetime.now().year
     current_month = datetime.now().month
 
@@ -63,6 +82,12 @@ def get_difference(user_id):
 
 
 def make_snapshot(user_id, difference=False):
+    """
+    Создает снимок баланса для указанного пользователя.
+    :param user_id: идентификатор пользователя
+    :param difference: если True, вычисляет разницу в балансе
+    :return: словарь с данными о состоянии баланса пользователя
+    """
     if difference:
         to_div, to_sum = get_difference(user_id)
 
@@ -227,3 +252,91 @@ class BalanceSnapshotList(Resource):
 
         except ValidationError as e:
             return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+
+# Бюджет
+@api.route('')
+class BudgetList(Resource):
+    """Управление бюджетом"""
+
+    @jwt_required()
+    @api.doc(security='jwt',
+             params={
+                 'month': 'Месяц (1-12)',
+                 'year': 'Год (например, 2025)',
+             })
+    def get(self):
+        """Получение списка всех заданных бюджетов пользователя"""
+        try:
+            # Получение данных из запроса
+            month = int(request.args.get('month', default=datetime.utcnow().month))
+            year = int(request.args.get('year', default=datetime.utcnow().year))
+
+            # Валидация
+            if not (1 <= month <= 12):
+                return {'message': 'Месяц должен быть от 1 до 12'}, 400
+            if not (1900 <= year <= 2100):
+                return {'message': 'Некорректный год'}, 400
+
+            user_id = get_jwt_identity()
+
+            budgets = Budget.query.filter_by(user_id=user_id, month=month, year=year).order_by(Budget.category_id).all()
+            return BudgetSchema(many=True).dump(budgets)
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+    @jwt_required()
+    # @permission_required('budget.manage')
+    @api.doc(security='jwt')
+    @api.expect(budget_model)
+    def post(self):
+        """Создание нового бюджета"""
+        try:
+            budget_data = BudgetSchema().load(request.json)
+
+            # Проверка существования бюджета
+            if Budget.query.filter_by(user_id=budget_data.user_id, category_id=budget_data.category_id, subcategory_id=budget_data.subcategory_id, user_cashbox_id=budget_data.user_cashbox_id, month=budget_data.month, year=budget_data.year).first():
+                return {'message': 'Такой бюджет уже существует'}, 400
+
+            db.session.add(budget_data)
+            db.session.commit()
+
+            # Логирование изменений
+            from app.models.budget import BudgetHistory
+            user_id = get_jwt_identity()
+            BudgetHistory.log_change(budget_data, 'create', user_id)
+
+            return {
+                'message': 'Новый бюджет успешно создан',
+                'budget': BudgetSchema().dump(budget_data)
+            }, 201
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+
+@api.route('/<int:id>')
+class BudgetDetails(Resource):
+    """Управление конкретной записью бюджета"""
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    def get(self, id):
+        """Получение информации конкретной записи бюджета"""
+        pass
+
+    @jwt_required()
+    # @permission_required('budget.manage')
+    @api.doc(security='jwt')
+    @api.expect(budget_model)
+    def put(self, id):
+        """Обновление конкретной записи бюджета"""
+        # TODO: take to attentions field :is_locked:
+        pass
+
+    @jwt_required()
+    # @permission_required('budget.manage')
+    @api.doc(security='jwt')
+    def delete(self, id):
+        """Удаление конкретной записи бюджета"""
+        pass
