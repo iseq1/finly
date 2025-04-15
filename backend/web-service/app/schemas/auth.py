@@ -173,7 +173,7 @@ class UserCashboxSchema(BaseSchema):
     note = fields.String(required=True)
 
     # Связи
-    user = fields.Nested(UserBaseSchema, only=('username', 'first_name', 'last_name'), dump_only=True)
+    user = fields.Nested('UserBaseSchema', only=('username', 'first_name', 'last_name'), dump_only=True)
     cashbox = fields.Nested('CashboxSchema', only=('name', 'currency'), dump_only=True)
 
 
