@@ -72,8 +72,10 @@ class User(BaseModel):
     is_active = Column(Boolean, default=True)
     last_login = Column(DateTime)
 
+    # Связи
     roles = relationship('Role', secondary='user_role', backref='users')
     user_cashboxes = relationship("UserCashbox", back_populates="user")
+    user_budgets = relationship("Budget", back_populates="user")
 
     def set_password(self, password):
         """Установка хэша пароля"""
