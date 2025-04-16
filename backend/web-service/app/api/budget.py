@@ -1,12 +1,13 @@
 """
 API для управления бюджетом
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import request
 from flask_restx import Resource, fields, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from app.models.budget import BalanceSnapshot, Budget
+from app.models.transaction import Income
 from app.schemas.budget import BalanceSnapshotSchema, SnapshotSchema, BudgetSchema
 from app.utils.auth import permission_required
 from app.utils.helpers import serialize_value
@@ -323,7 +324,37 @@ class BudgetDetails(Resource):
     @api.doc(security='jwt')
     def get(self, id):
         """Получение информации конкретной записи бюджета"""
-        pass
+        user_id = get_jwt_identity()
+        budget = Budget.query.get_or_404(id)
+
+        # Фильтрация доходов по бюджету
+        from app.models.transaction import Income
+
+        start_date = datetime(budget.year, budget.month, 1)
+        if budget.month == 12:
+            end_date = datetime(budget.year + 1, 1, 1) - timedelta(seconds=1)
+        else:
+            end_date = datetime(budget.year, budget.month + 1, 1) - timedelta(seconds=1)
+
+        incomes = Income.query.filter_by(user_id=user_id, category_id=budget.category_id).filter(Income.transacted_at >= start_date, Income.transacted_at <= end_date)
+
+        if budget.subcategory_id:
+            incomes = incomes.filter(Income.subcategory_id == budget.subcategory_id)
+        if budget.user_cashbox_id:
+            incomes = incomes.filter(Income.user_cashbox_id == budget.user_cashbox_id)
+
+        total_income = sum(i.amount for i in incomes.all())
+        budget_amount = budget.amount or 0
+
+        progress_percent = round((total_income / budget_amount) * 100, 2) if budget_amount else 0
+        is_exceeded = total_income > budget_amount
+
+        return {
+            'budget': BudgetSchema().dump(budget),
+            'fact_amount': total_income,
+            'progress_percent': progress_percent,
+            'is_exceeded': is_exceeded
+        }
 
     @jwt_required()
     # @permission_required('budget.manage')
@@ -331,12 +362,56 @@ class BudgetDetails(Resource):
     @api.expect(budget_model)
     def put(self, id):
         """Обновление конкретной записи бюджета"""
-        # TODO: take to attentions field :is_locked:
-        pass
+        try:
+            budget = Budget.query.get_or_404(id)
+            budget_data = BudgetSchema().load(request.json)
+            user_id = get_jwt_identity()
+
+            if budget.is_locked:
+                if budget.month == int(datetime.utcnow().month) and budget.year == int(datetime.utcnow().year):
+                    return {
+                        'message': 'Данный бюджет зафиксирован - нельзя редактировать после начала периода',
+                        'budget': BudgetSchema().dump(budget)
+                    }
+
+            # Сохранение старых данных
+            old_data = budget.to_dict()
+
+            # Обновляем поля
+            for field, value in budget_data.__dict__.items():
+                if field != '_sa_instance_state':
+                    setattr(budget, field, value)
+
+            db.session.commit()
+
+            # Логирование изменений
+            from app.models.budget import BudgetHistory
+            changes = {k: serialize_value(v) for k, v in budget.to_dict().items() if old_data.get(k) != v}
+            BudgetHistory.log_change(budget, 'update', user_id, changes)
+
+            return {
+                'message': 'Запись дохода успешно обновлена',
+                'budget': BudgetSchema().dump(budget)
+            }
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
 
     @jwt_required()
     # @permission_required('budget.manage')
     @api.doc(security='jwt')
     def delete(self, id):
         """Удаление конкретной записи бюджета"""
-        pass
+        try:
+            budget = Budget.query.get_or_404(id=id)
+
+            # Логирование изменений
+            from app.models.budget import BudgetHistory
+            user_id = get_jwt_identity()
+            BudgetHistory.log_change(budget, 'delete', user_id)
+
+            budget.soft_delete()
+
+            return {'message': f'Запись бюджета с ID = {id} успешна удалена'}
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
