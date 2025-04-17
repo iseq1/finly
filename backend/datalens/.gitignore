@@ -1,0 +1,128 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+back-erp/
+
+# Виртуальное окружение
+venv/
+ENV/
+env/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Файлы базы данных
+*.db
+*.sqlite
+*.sqlite3
+
+# Логи
+logs/
+*.log
+
+# Загруженные файлы
+uploads/
+
+# Тесты и покрытие
+.coverage
+coverage_report/
+.pytest_cache/
+htmlcov/
+.tox/
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Документация
+docs/_build/
+docs/api/
+
+# Зависимости
+node_modules/
+package-lock.json
+yarn.lock
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Временные файлы
+*.tmp
+*.bak
+*.swp
+*~.nib
+*.pid
+
+# Файлы конфигурации
+*.conf
+!supervisor.conf
+
+# Сертификаты и ключи
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.priv
+
+# Архивы
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Медиафайлы
+*.mp3
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.ico
+*.svg
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+
+# Специфичные для проекта
+instance/
+diplomo/
+.webassets-cache/
