@@ -2,8 +2,6 @@
 API для управления транзакциями
 """
 from collections import defaultdict
-from locale import currency
-
 from flask import request
 from flask_restx import Resource, fields, Namespace
 from flask_jwt_extended import jwt_required, get_jwt_identity
