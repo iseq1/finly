@@ -1,0 +1,29 @@
+# Бот
+aiogram==3.4.1
+httpx==0.27.0
+aiofiles
+
+# Мини-приложение
+Jinja2
+python-dotenv
+flask
+flask-cors
+flask-restx
+flask-swagger-ui
+flask-SQLAlchemy
+flask-marshmallow
+marshmallow-sqlalchemy
+flask-jwt-extended
+python-dateutil
+
+# Зависимости для базы данных
+psycopg2-binary  # для PostgreSQL
+SQLAlchemy
+
+# Зависимости для тестирования
+pytest
+pytest-flask
+
+# dev
+black
+isort
