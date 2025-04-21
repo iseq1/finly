@@ -1,6 +1,7 @@
 """
 Утилиты для аутентификации и авторизации
 """
+import os
 from functools import wraps
 from datetime import datetime, timezone
 from flask import request, current_app, jsonify
@@ -164,3 +165,20 @@ def log_action(action_type):
             return result
         return wrapper
     return decorator
+
+def make_default_user():
+    """
+
+    """
+    DEFAULT_TG_USER = {
+        'username': os.getenv('DEFAULT_TG_USERNAME', 'tguser'),
+        'email': os.getenv('DEFAULT_TG_EMAIL', 'tguser@example.com'),
+        'first_name': 'Telegram',
+        'last_name': 'User',
+        'patronymic': '',
+        'phone_number': '00000000000',
+        'birthday': '2000-01-01 00:00:00.000001',
+        'password': os.getenv('DEFAULT_TG_PASSWORD', 'Telegram1!'),
+        'confirm_password': os.getenv('DEFAULT_TG_PASSWORD', 'Telegram1!')
+    }
+    return DEFAULT_TG_USER
