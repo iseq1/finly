@@ -3,6 +3,9 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Загружает .env
 
+# Связь с сервером
+API_BASE_URL = os.getenv("API_BASE_URL")
+SECRET_TELEGRAM_AUTH_KEY = os.getenv("SECRET_TELEGRAM_AUTH_KEY")
 
 class Config:
     # Общие настройки
@@ -19,3 +22,6 @@ class Config:
 
     # Database
     DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+config = Config()
