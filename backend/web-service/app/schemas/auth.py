@@ -1,7 +1,7 @@
 """
 Схемы для аутентификации и управления пользователями
 """
-from marshmallow import Schema, fields, validates, ValidationError, validates_schema, post_load
+from marshmallow import Schema, fields, validates, ValidationError, validates_schema, post_load, pre_load
 from app.extensions import ma
 from app.models.auth import User, Role, UserSession, UserAvatar, UserRole, UserCashbox, UserCashboxHistory
 from app.schemas.base import BaseSchema, HistorySchema
@@ -39,6 +39,8 @@ class UserBaseSchema(BaseSchema):
     birthday = fields.DateTime()
     is_active = fields.Boolean(dump_only=True)
     last_login = fields.DateTime(dump_only=True)
+    telegram_id = fields.Integer(dump_only=True)
+    telegram_username = fields.String(dump_only=True)
     roles = fields.List(fields.Nested(RoleSchema))
 
 
@@ -180,3 +182,29 @@ class UserCashboxSchema(BaseSchema):
 class UserCashboxSchemaHistory(HistorySchema):
     """Схема изменений кэш-бокса пользователя"""
     user_cashbox_id = fields.Integer(required=True)
+
+
+class UserTelegramSchema(BaseSchema):
+    telegram_id = fields.Integer(required=True)
+    telegram_username = fields.String(required=True)
+    secret = fields.String(required=False)
+
+    @pre_load
+    def preprocess_username(self, data, **kwargs):
+        username = data.get('telegram_username', '')
+        if username.startswith('@'):
+            username = username[1:]
+        data['telegram_username'] = username.lower()
+        return data
+
+    @validates('telegram_username')
+    def validate_username(self, value):
+        if not value.isalnum():
+            raise ValidationError("telegram_username может содержать только буквы и цифры")
+        if len(value) > 32:
+            raise ValidationError("telegram_username не может быть длиннее 32 символов")
+
+    @validates('telegram_id')
+    def validate_telegram_id(self, value):
+        if not isinstance(value, int) or value <= 0:
+            raise ValidationError("telegram_id должен быть положительным целым числом")
