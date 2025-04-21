@@ -1,7 +1,8 @@
 """
 API для аутентификации и управления пользователями
 """
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from flask import request, jsonify
 from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import (
@@ -12,12 +13,13 @@ from marshmallow import ValidationError
 from app.models.auth import User, Role, UserSession, UserAvatar, UserRole, UserCashbox, get_all_permissions
 from app.schemas.auth import (
     UserCreateSchema, UserUpdateSchema, LoginSchema,
-    TokenSchema, RoleSchema, PermissionSchema, UserAvatarSchema, UserRoleSchema, UserCashboxSchema
+    TokenSchema, RoleSchema, PermissionSchema, UserAvatarSchema, UserRoleSchema, UserCashboxSchema, UserBaseSchema,
+    UserTelegramSchema
 )
 from app.utils.auth import (
     create_tokens, set_auth_cookies,
     clear_auth_cookies, permission_required,
-    log_action
+    log_action,make_default_user
 )
 from app.utils.helpers import serialize_value
 from app.extensions import db
@@ -33,7 +35,9 @@ user_model = api.model('User', {
     'first_name': fields.String(description='Имя'),
     'last_name': fields.String(description='Фамилия'),
     'patronymic': fields.String(description='Отчество'),
-    'phone_number': fields.String(description='Номер телефона')
+    'phone_number': fields.String(description='Номер телефона'),
+    'telegram_id': fields.Integer(description='Телеграм-ID пользователя'),
+    'telegram_username': fields.String(description='Телеграм имя пользователя')
 })
 
 user_update_model = api.model('UserUpdate', {
@@ -54,6 +58,12 @@ login_model = api.model('Login', {
     'remember_me': fields.Boolean(description='Запомнить меня')
 })
 
+tg_login_model = api.model('TelegramLogin', {
+    'telegram_id': fields.Integer(required=True),
+    'telegram_username': fields.String(required=True),
+    'secret': fields.String(required=True)
+})
+
 user_cashbox_model = api.model('UserCashbox', {
     'user_id': fields.Integer(required=True, description='ID-пользователя'),
     'cashbox_id': fields.Integer(required=True, description='ID-кэш-бокса'),
@@ -63,6 +73,8 @@ user_cashbox_model = api.model('UserCashbox', {
     'custom_name': fields.String(required=True, description='Кастомное имя кэш-бокса от пользователя'),
     'note': fields.String(required=True, description='Заметка к кэш-боксу от пользователя'),
 })
+
+SECRET_TELEGRAM_AUTH_KEY = os.getenv('SECRET_TELEGRAM_AUTH_KEY')
 
 
 @api.route('/register')
@@ -111,6 +123,116 @@ class Register(Resource):
             
         except ValidationError as e:
             return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+
+@api.route('/telegram/register')
+class TelegramRegister(Resource):
+    """Регистрация нового пользователя посредством Telegram-ID"""
+
+    @api.expect(tg_login_model)
+    @api.response(201, 'Пользователь успешно создан')
+    @api.response(400, 'Ошибка валидации')
+    def post(self):
+        """Регистрация нового пользователя посредством Telegram-ID"""
+        try:
+            data = request.json
+            print(data)
+
+            if data.get('secret') != SECRET_TELEGRAM_AUTH_KEY:
+                return {"message": "Неверный секрет"}, 403
+
+            tg_user_data = UserTelegramSchema().load(data)
+
+            # Проверка существования пользователя
+            query_filter = (User.telegram_id == tg_user_data['telegram_id'])
+            if tg_user_data['telegram_username']:
+                query_filter = query_filter | (User.telegram_username == tg_user_data['telegram_username'])
+
+            if User.query.filter(query_filter).first():
+                message = 'Пользователь с таким telegram-ID уже существует'
+                if tg_user_data['telegram_username']:
+                    message = 'Пользователь с таким именем пользователя или telegram-ID уже существует'
+                return {
+                    'message': message
+                }, 400
+
+            def_user = make_default_user()
+
+            user_data = UserCreateSchema().load(def_user)
+            user = user_data
+            user.set_password(def_user['password'])
+            user.is_active = True
+            user.last_login = datetime.now(timezone.utc)
+            user.telegram_id = tg_user_data['telegram_id']
+            user.telegram_username = tg_user_data['telegram_username']
+
+            db.session.add(user)
+            db.session.commit()
+
+            # Создание токенов
+            access_token = create_access_token(identity=str(user.id))
+            refresh_token = create_refresh_token(identity=str(user.id))
+
+            return {
+                'message': 'Пользователь успешно зарегистрирован',
+                'user': UserCreateSchema(exclude=['password']).dump(user),
+                'access_token': access_token,
+                'refresh_token': refresh_token
+            }, 201
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+
+@api.route('/telegram/login')
+class TelegramLogin(Resource):
+    """Вход в систему посредством Telegram-ID"""
+
+    @api.expect(tg_login_model)
+    @api.response(200, 'Успешный вход')
+    @api.response(401, 'Неверные учетные данные')
+    def post(self):
+        """Аутентификация пользователя по Telegram ID"""
+        try:
+            data = request.json
+
+            if data.get('secret') != SECRET_TELEGRAM_AUTH_KEY:
+                return {"message": "Неверный секрет"}, 403
+
+            telegram_id = data.get('telegram_id')
+
+            if not telegram_id:
+                return {"message": "Telegram ID обязателен"}, 400
+
+            user = User.query.filter_by(telegram_id=telegram_id).first()
+
+            if not user:
+                return {"message": "Пользователь с таким Telegram ID не найден"}, 404
+
+            if not user.is_active:
+                return {'message': 'Пользователь деактивирован'}, 401
+
+            if user.telegram_username != data.get('telegram_username'):
+                user.telegram_username = data.get('telegram_username')
+
+            # Обновление времени последнего входа
+            user.last_login = datetime.utcnow()
+            db.session.commit()
+
+            # Создание токенов
+            access_token = create_access_token(identity=str(user.id))
+            refresh_token = create_refresh_token(identity=str(user.id))
+
+            return {
+                'message': 'Успешный вход в систему',
+                'user': UserCreateSchema(exclude=['password']).dump(user),
+                'access_token': access_token,
+                'refresh_token': refresh_token
+            }, 200
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
 
 # Модели для ролей и разрешений
 permission_model = api.model('Permission', {
@@ -277,6 +399,7 @@ class RolePermissions(Resource):
             
         except Exception as e:
             return {'message': str(e)}, 400
+
 @api.route('/login')
 class Login(Resource):
     """Вход в систему"""
@@ -709,3 +832,103 @@ class UserCashboxDetail(Resource):
         UserCashboxHistory.log_change(user_cashbox, 'delete', user_id)
         user_cashbox.soft_delete()
         return {'message': f'Пользовательский кэш-бокс с ID = {id} успешно удален'}
+
+# Модуль для связи между пользователем и телеграмм
+telegram_model = api.model("UserTelegram", {
+    "telegram_id": fields.Integer(required=True, description="Telegram ID"),
+    "telegram_username": fields.String(required=True, description="Telegram username"),
+})
+
+
+@api.route('/me/telegram')
+class UserTelegramList(Resource):
+    """Управление связью между пользователем и телеграмм"""
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    def get(self):
+        """Получение связи между пользователем и тг-аккаунтом"""
+        return UserBaseSchema().dump(User.query.get_or_404(get_jwt_identity()))
+
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    @api.expect(telegram_model)
+    def post(self):
+        """Создание связи между пользователем и тг-аккаунтом"""
+        try:
+            user_telegram_data = UserTelegramSchema().load(request.json)
+            user_id = get_jwt_identity()
+
+            user = User.query.get_or_404(user_id)
+
+            # Проверка, что Telegram ID не занят другим пользователем
+            if User.query.filter(User.telegram_id == user_telegram_data["telegram_id"], User.id != user_id).first():
+                return {"message": "Этот Telegram ID уже используется другим пользователем"}, 400
+
+            user.telegram_id = user_telegram_data["telegram_id"]
+            user.telegram_username = user_telegram_data["telegram_username"]
+
+            db.session.commit()
+
+            # Логирование действий
+
+            return {
+                'message': 'Телеграм успешно привязан к пользователю',
+                'user': UserBaseSchema().dump(user)
+            }, 201
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    @api.expect(telegram_model)
+    def put(self):
+        """Обновление связи между пользователем и тг-аккаунтом"""
+        try:
+            user_telegram_data = UserTelegramSchema().load(request.json)
+            user_id = get_jwt_identity()
+
+            user = User.query.get_or_404(user_id)
+
+            # Проверка, что Telegram ID не занят другим пользователем
+            if User.query.filter(User.telegram_id == user_telegram_data["telegram_id"], User.id != user_id).first():
+                return {"message": "Этот Telegram ID уже используется другим пользователем"}, 400
+
+            user.telegram_id = user_telegram_data["telegram_id"]
+            user.telegram_username = user_telegram_data["telegram_username"]
+
+            db.session.commit()
+
+            # Логирование действий
+
+            return {
+                'message': 'Телеграм успешно привязан к пользователю',
+                'user': UserBaseSchema().dump(user)
+            }, 201
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
+    @jwt_required()
+    @api.doc(security='jwt')
+    def delete(self):
+        """Удаление связи пользователя и телеграм-аккаунта"""
+        user = User.query.get_or_404(get_jwt_identity())
+
+        if user.telegram_id or user.telegram_username:
+            user.telegram_id = None
+            user.telegram_username = None
+            db.session.commit()
+            return {"message": "Связь с Telegram удалена"}, 200
+        else:
+            return {"message": "У пользователя нет связи с TG"}, 400
+
+
+
+
+
+
+
