@@ -71,6 +71,8 @@ class User(BaseModel):
     birthday = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     last_login = Column(DateTime)
+    telegram_id = Column(Integer, unique=True, nullable=True)
+    telegram_username = Column(String(128), unique=True, nullable=True)
 
     # Связи
     roles = relationship('Role', secondary='user_role', backref='users')
