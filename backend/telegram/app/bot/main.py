@@ -1,21 +1,15 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.enums import ParseMode
+from app.bot.handlers import start
+import os
 
-from settings.config import settings  # предполагаем, что ты хранишь токен и настройки здесь
-from bot.handlers import register_handlers  # функция регистрации всех хендлеров
-
+TOKEN = os.getenv("TG_BOT_TOKEN")
 
 async def main():
-    bot = Bot(token=settings.BOT_TOKEN, parse_mode=ParseMode.HTML)
+    bot = Bot(token=TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
 
-    register_handlers(dp)
+    dp.include_router(start.router)
 
-    await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
