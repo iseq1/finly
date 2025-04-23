@@ -12,13 +12,13 @@ class Cashbox(BaseModel):
     """
     __tablename__ = 'cashbox'
 
-    name = Column(String(99))  # Наименование кэш-бокса
-    type_id = Column(Integer, ForeignKey('cashbox_type.id'))  # ID-тип кэш-бокса
-    provider_id = Column(Integer, ForeignKey('cashbox_provider.id'))  # ID-провайдера кэш-бокса (Банк/Биржа/Сервис)
-    currency = Column(String(5))  # Валюта кэш-бокса
+    name = Column(String(99), nullable=False)  # Наименование кэш-бокса
+    type_id = Column(Integer, ForeignKey('cashbox_type.id'), nullable=False)  # ID-тип кэш-бокса
+    provider_id = Column(Integer, ForeignKey('cashbox_provider.id'), nullable=False)  # ID-провайдера кэш-бокса (Банк/Биржа/Сервис)
+    currency = Column(String(5), nullable=False)  # Валюта кэш-бокса
     description = Column(String(255))  # Описание кэш-бокса
     icon = Column(String(512), nullable=True)  # Иконка кэш-бокса
-    is_active = Column(Boolean())  # Активен ли кэш-бокс
+    is_active = Column(Boolean(), default=True)  # Активен ли кэш-бокс
 
     # Связи
     type = relationship('CashboxType', back_populates='cashboxes')
@@ -45,8 +45,8 @@ class CashboxType(BaseModel):
     """
     __tablename__ = "cashbox_type"
 
-    name = Column(String(99))  # Наименование типа
-    code = Column(String(50), unique=True)  # 'debit_card', 'crypto', ...
+    name = Column(String(99), nullable=False)  # Наименование типа
+    code = Column(String(50), unique=True, nullable=False)  # 'debit_card', 'crypto', ...
 
     # Связи
     cashboxes = relationship('Cashbox', back_populates='type')
@@ -71,13 +71,13 @@ class CashboxProvider(BaseModel):
     """
     __tablename__ = "cashbox_provider"
 
-    name = Column(String(99))  # Наименование провайдера (Т-Банк)
-    full_name = Column(String(256))  # Полное наименование провайдера
-    logo_url = Column(String(512))  # Ссылка на логотип провайдера
+    name = Column(String(99), nullable=False)  # Наименование провайдера (Т-Банк)
+    full_name = Column(String(256), nullable=False)  # Полное наименование провайдера
+    logo_url = Column(String(512), nullable=False)  # Ссылка на логотип провайдера
     alt_logo_url = Column(String(512), nullable=True)  # Ссылка на альтернативный логотип провайдера
-    color = Column(String(7))  # Основной цвет провайдера
+    color = Column(String(7), nullable=False)  # Основной цвет провайдера
     second_color = Column(String(7), nullable=True)  # Второй цвет провайдера
-    alt_color = Column(String(7))  # Альтернативный цвет провайдера
+    alt_color = Column(String(7), nullable=False)  # Альтернативный цвет провайдера
     second_alt_color = Column(String(7), nullable=True)  # Второй альтернативный цвет провайдера
 
     # Связи

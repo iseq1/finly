@@ -14,8 +14,8 @@ class BalanceSnapshot(BaseModel):
     __tablename__ = 'balance_snapshot'
 
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)  # ID-пользователя
-    month = Column(Integer)  # Месяц снимка
-    year = Column(Integer)  # Год снимка
+    month = Column(Integer, nullable=False)  # Месяц снимка
+    year = Column(Integer, nullable=False)  # Год снимка
     snapshot = Column(JSON)  # Снимок баланса в формате {user_cashbox: {balance: x, currency: y}}
     base_currency = Column(String(5), default='RUB')  # Базовая валюта
     is_static = Column(Boolean, default=False)  # Статичная ли запись
@@ -59,13 +59,14 @@ class Budget(BaseModel):
     Модель бюджета
     """
     __tablename__ = 'budget'
-
+    # TODO validate ids to not will be empty
+    # TODO delete user_id
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)  # ID-пользователя
-    category_id = Column(Integer, ForeignKey('category.id'), nullable=False)  # ID-категории
+    category_id = Column(Integer, ForeignKey('category.id'), nullable=True)  # ID-категории
     subcategory_id = Column(Integer, ForeignKey('subcategory.id'), nullable=True)  # ID-подкатегории
     user_cashbox_id = Column(Integer, ForeignKey('user_cashbox.id'), nullable=True)  # ID-пользовательского кэш-бокса
-    month = Column(Integer)  # Месяц
-    year = Column(Integer)  # Год
+    month = Column(Integer, nullable=False)  # Месяц
+    year = Column(Integer, nullable=False)  # Год
     amount = Column(Float)  # Планируемая сумма
     currency = Column(String(5), default='RUB')  # Валюта
     comment = Column(String(256), nullable=True)  # Комментарий пользователя

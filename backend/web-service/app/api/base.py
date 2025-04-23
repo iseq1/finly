@@ -8,7 +8,7 @@ from app.extensions import db
 from app.models.base import BaseModel as BaseModelDB, HistoryModel
 from app.schemas.base import BaseSchema, HistorySchema, PaginationSchema, DateRangeSchema, ErrorSchema, SuccessSchema
 
-api = Namespace('base', description='Базовые реализации ERP')
+api = Namespace('base', description='Базовые реализации системы')
 
 # Модели для Swagger документации
 base_model = api.model('BaseModel', {

@@ -12,10 +12,10 @@ class Category(BaseModel):
     """
     __tablename__ = "category"
 
-    name = Column(String(99))  # Наименование категории
-    code = Column(Integer())  # Код категории
-    logo_url = Column(String(512))  # url-ссылка логотипа категории
-    color = Column(String(7))  # Цвет категории формата hex #xxxxxx
+    name = Column(String(99), nullable=False)  # Наименование категории
+    code = Column(Integer, nullable=False)  # Код категории
+    logo_url = Column(String(512), nullable=False)  # url-ссылка логотипа категории
+    color = Column(String(7), nullable=False)  # Цвет категории формата hex #xxxxxx
 
     # Связи
     subcategories = relationship('Subcategory', back_populates='category')
@@ -48,9 +48,9 @@ class Subcategory(BaseModel):
     """
     __tablename__ = "subcategory"
 
-    name = Column(String(99))  # Наименование подкатегории
-    code = Column(Integer())  # Код подкатегории
-    logo_url = Column(String(512))  # url-ссылка логотипа подкатегории
+    name = Column(String(99), nullable=False)  # Наименование подкатегории
+    code = Column(Integer(), nullable=False)  # Код подкатегории
+    logo_url = Column(String(512), nullable=False)  # url-ссылка логотипа подкатегории
 
     category_id = Column(Integer, ForeignKey('category.id'), nullable=False)
     category = relationship('Category', back_populates='subcategories')
