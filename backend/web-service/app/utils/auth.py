@@ -166,13 +166,13 @@ def log_action(action_type):
         return wrapper
     return decorator
 
-def make_default_user():
+def make_default_user(id):
     """
 
     """
     DEFAULT_TG_USER = {
-        'username': os.getenv('DEFAULT_TG_USERNAME', 'tguser'),
-        'email': os.getenv('DEFAULT_TG_EMAIL', 'tguser@example.com'),
+        'username': os.getenv('DEFAULT_TG_USERNAME', 'tguser')+f'{id}',
+        'email': f'{id}' + os.getenv('DEFAULT_TG_EMAIL', 'tguser@example.com'),
         'first_name': 'Telegram',
         'last_name': 'User',
         'patronymic': '',

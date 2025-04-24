@@ -156,7 +156,7 @@ class TelegramRegister(Resource):
                     'message': message
                 }, 400
 
-            def_user = make_default_user()
+            def_user = make_default_user(tg_user_data['telegram_id'])
 
             user_data = UserCreateSchema().load(def_user)
             user = user_data
