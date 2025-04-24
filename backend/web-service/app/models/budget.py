@@ -59,7 +59,6 @@ class Budget(BaseModel):
     Модель бюджета
     """
     __tablename__ = 'budget'
-    # TODO validate ids to not will be empty
     # TODO delete user_id
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)  # ID-пользователя
     category_id = Column(Integer, ForeignKey('category.id'), nullable=True)  # ID-категории

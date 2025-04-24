@@ -299,6 +299,10 @@ class BudgetList(Resource):
             if Budget.query.filter_by(user_id=budget_data.user_id, category_id=budget_data.category_id, subcategory_id=budget_data.subcategory_id, user_cashbox_id=budget_data.user_cashbox_id, month=budget_data.month, year=budget_data.year).first():
                 return {'message': 'Такой бюджет уже существует'}, 400
 
+            # Проверка корректности бюджета
+            if budget_data.category_id is None and budget_data.subcategory_id is None and budget_data.user_cashbox_id is None:
+                return {'message': 'Некорректное создание бюджета, не выбрана цель бюджета!'}, 400
+
             db.session.add(budget_data)
             db.session.commit()
 
