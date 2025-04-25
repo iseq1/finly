@@ -192,9 +192,13 @@ class UserTelegramSchema(BaseSchema):
     @pre_load
     def preprocess_username(self, data, **kwargs):
         username = data.get('telegram_username', '')
-        if username.startswith('@'):
-            username = username[1:]
-        data['telegram_username'] = username.lower()
+        if username is None:
+            data['telegram_username'] = None
+        else:
+            if username.startswith('@'):
+                username = username[1:]
+            data['telegram_username'] = username.lower()
+
         return data
 
     @validates('telegram_username')
