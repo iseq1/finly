@@ -154,7 +154,7 @@ class TelegramRegister(Resource):
                     message = 'Пользователь с таким именем пользователя или telegram-ID уже существует'
                 return {
                     'message': message
-                }, 400
+                }, 404
 
             def_user = make_default_user(tg_user_data['telegram_id'])
 
@@ -415,7 +415,7 @@ class Login(Resource):
             user = User.query.filter_by(email=login_data['email']).first()
             
             if not user or not user.check_password(login_data['password']):
-                return {'message': 'Неверный email или пароль'}, 401
+                return {'message': 'Неверный email или пароль'}, 404
             
             if not user.is_active:
                 return {'message': 'Пользователь деактивирован'}, 401
@@ -864,7 +864,7 @@ class UserTelegramList(Resource):
 
             # Проверка, что Telegram ID не занят другим пользователем
             if User.query.filter(User.telegram_id == user_telegram_data["telegram_id"], User.id != user_id).first():
-                return {"message": "Этот Telegram ID уже используется другим пользователем"}, 400
+                return {"message": "Этот Telegram ID уже используется другим пользователем"}, 406
 
             user.telegram_id = user_telegram_data["telegram_id"]
             user.telegram_username = user_telegram_data["telegram_username"]
