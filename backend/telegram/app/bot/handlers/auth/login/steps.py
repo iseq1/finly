@@ -13,26 +13,32 @@ class TelegramLoginHandler(BaseHandler):
                 tg_id=event.from_user.id,
                 tg_username=event.from_user.username
             )
+
+            data_from_context = await state.get_data()
+
+            if not data_from_context:
+                data_from_context = {}
+
+            data_from_context.update({
+                "access_token": data["access_token"],
+                "refresh_token": data["refresh_token"],
+                "user_id": data["user"]["id"]
+            })
+
+            # Обновляем данные в FSMContext
+            await state.update_data(data_from_context)
+            logger.info(f"[{self.__class__.__name__}] Успешная авторизация: user_id={data_from_context['user_id']}")
+            return await super().handle(event, state, data_from_context)
+
         except TelegramAuthError as e:
-            logger.error(f"[{self.__class__.__name__}] Ошибка: {e.message}")
-            await event.message.edit_text(e.to_user_message())
-            return
-
-        data_from_context = await state.get_data()
-
-        if not data_from_context:
-            data_from_context = {}
-
-        data_from_context.update({
-            "access_token": data["access_token"],
-            "refresh_token": data["refresh_token"],
-            "user_id": data["user"]["id"]
-        })
-
-        # Обновляем данные в FSMContext
-        await state.update_data(data_from_context)
-        logger.info(f"[{self.__class__.__name__}] Успешная авторизация: user_id={data_from_context['user_id']}")
-        return await super().handle(event, state, data_from_context)
+            logger.error(f"[{self.__class__.__name__}] Ошибка при авторизации пользователя: {e.message}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
 class FSMUpdateHandler(BaseHandler):

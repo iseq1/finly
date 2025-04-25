@@ -1,8 +1,14 @@
+import aiogram
 from aiogram.fsm.context import FSMContext
 from app.bot.handlers.base import BaseHandler
 from app.bot.states import AuthState
 from app.utils.auth import TelegramAuthService
 from app.exceptions.telegram_exceptions import TelegramAuthError
+from app.exceptions.link_tg_exceptions import (
+    TelegramLinkError,
+    IncorrectEmailError,
+    IncorrectUserInputError,
+)
 from app.utils.logger import logger
 
 class FirstStepTelegramLinkHandler(BaseHandler):
@@ -12,7 +18,13 @@ class FirstStepTelegramLinkHandler(BaseHandler):
         logger.debug(f"[{self.__class__.__name__}] Запрос e-mail адреса пользователя {event.from_user.id}")
         await state.set_state(AuthState.waiting_for_email)
         await state.update_data(chain_step=1)
-        await event.message.edit_text("📧 Введите ваш email (example@gmail.com):")
+
+        text = "📧 Введите ваш email (example@gmail.com):"
+        if isinstance(event, aiogram.types.CallbackQuery):
+            await event.message.edit_text(text)
+        elif isinstance(event, aiogram.types.Message):
+            await event.answer(text)
+
         return False
 
 
@@ -21,17 +33,24 @@ class TakingEmaiHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Получение e-mail адреса пользователя {event.from_user.id}")
         try:
+            if not isinstance(event.text, str):
+                raise IncorrectUserInputError()
+
             email = event.text.strip()
+
             if "@" not in email or "." not in email:
-                raise IncorrectEmailError('Некорректный email')
+                raise IncorrectEmailError()
 
             await state.update_data(email=email)
-
             return await super().handle(event, state, context)
 
-        except IncorrectEmailError as e:
-            logger.error(f"[{self.__class__.__name__}] Ошибка получения e-mail пользователя: {event.from_user.id} ")
-            await event.answer("⚠️ Некорректный email. Попробуйте снова")
+        except TelegramLinkError as e:
+            logger.warning(f"[{self.__class__.__name__}] Пользовательская ошибка: {e.message} | {event.from_user.id}")
+            await event.answer(e.to_user_message())
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при обработке email: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
             return False
 
 
@@ -50,12 +69,19 @@ class TakingPasswordHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Получение пароля пользователя {event.from_user.id}")
         try:
+            if not isinstance(event.text, str):
+                raise IncorrectUserInputError()
             password = event.text.strip()
             await state.update_data(password=password)
             return await super().handle(event, state, context)
 
-        except IncorrectEmailError:
-            logger.error(f"[{self.__class__.__name__}] Ошибка получения пароля пользователя: {event.from_user.id} ")
+        except TelegramLinkError as e:
+            logger.warning(f"[{self.__class__.__name__}] Пользовательская ошибка: {e.message} | {event.from_user.id}")
+            await event.answer(e.to_user_message())
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при обработке пароля: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
             return False
 
 
@@ -73,30 +99,41 @@ class TelegramLoginHandler(BaseHandler):
                 email=email,
                 password=password
             )
-        except TelegramLoginNotFound:
-            logger.warning(f"[{self.__class__.__name__}] Пользователь не найден: {event.from_user.id}")
-            await event.answer("❌ Вы не зарегистрированы. Пожалуйста, сначала пройдите регистрацию.")
-            return
-        except TelegramAuthError:
+
+            data_from_context = await state.get_data()
+
+            if not data_from_context:
+                data_from_context = {}
+
+            data_from_context.update({
+                "access_token": data["access_token"],
+                "refresh_token": data["refresh_token"],
+                "user_id": data["user"]["id"]
+            })
+
+            # Обновляем данные в FSMContext
+            await state.update_data(data_from_context)
+            logger.info(f"[{self.__class__.__name__}] Успешная авторизация: user_id={data_from_context['user_id']}")
+            return await super().handle(event, state, data_from_context)
+
+        except TelegramLinkError as e:
+            logger.warning(f"[{self.__class__.__name__}] Ошибка при взаимодействии с Telegram UI: {event.from_user.id}")
+            await event.answer(e.to_user_message())
+            return False
+        except TelegramAuthError as e:
             logger.error(f"[{self.__class__.__name__}] Ошибка авторизации пользователя: {event.from_user.id}")
-            await event.answer("❌ Произошла ошибка авторизации. Обратитесь в поддержку.")
-            return
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            # Перезапуск цепочки
+            from app.bot.handlers.auth.link_tg.chain import LinkTelegramChain
+            await state.clear()
+            first_handler = LinkTelegramChain().get_handler_by_step(0)
+            return await first_handler.handle(event, state)
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
-        data_from_context = await state.get_data()
-
-        if not data_from_context:
-            data_from_context = {}
-
-        data_from_context.update({
-            "access_token": data["access_token"],
-            "refresh_token": data["refresh_token"],
-            "user_id": data["user"]["id"]
-        })
-
-        # Обновляем данные в FSMContext
-        await state.update_data(data_from_context)
-        logger.info(f"[{self.__class__.__name__}] Успешная авторизация: user_id={data_from_context['user_id']}")
-        return await super().handle(event, state, data_from_context)
 
 
 class FSMUpdateHandler(BaseHandler):
@@ -116,20 +153,25 @@ class MakeLinkHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Установка соединения пользователя телеграмм и пользователя системы {event.from_user.id}")
 
-        data = await state.get_data()
-        access_token = data.get("access_token")
-
         try:
+            data = await state.get_data()
+            access_token = data.get("access_token")
             auth = TelegramAuthService()
             user_data, _ = await auth.link_telegram(tg_id=event.from_user.id,
                                                tg_username=event.from_user.username or "",
                                                access_token=access_token)
-        except TelegramAuthError:
-            await event.answer("❌ Произошла ошибка связи между пользователем системы и телеграмм-аккаунтом.")
-            logger.debug(f"[{self.__class__.__name__}] Ошибка соединения пользователя телеграмм и пользователя системы {event.from_user.id}")
+            return await super().handle(event, state, context)
+
+        except TelegramAuthError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка соединения пользователя телеграмм и пользователя системы: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная соединения пользователя телеграмм и пользователя системы: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
             return False
 
-        return await super().handle(event, state, context)
 
 
 class SendWelcomeHandler(BaseHandler):

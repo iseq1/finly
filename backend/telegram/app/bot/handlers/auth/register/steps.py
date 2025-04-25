@@ -13,30 +13,32 @@ class TelegramRegisterHandler(BaseHandler):
                 tg_id=event.from_user.id,
                 tg_username=event.from_user.username
             )
-        except TelegramRegisterConflict:
-            logger.warning(f"[{self.__class__.__name__}] Пользователь уже зарегистрирован: {event.from_user.id}")
-            await event.message.edit_text("❌ Произошла ошибка регистрации. Пользователь с вашими данными уже есть в системе.")
-            return
-        except TelegramAuthError:
+
+            data_from_context = await state.get_data()
+
+            if not data_from_context:
+                data_from_context = {}
+
+            data_from_context.update({
+                "access_token": data["access_token"],
+                "refresh_token": data["refresh_token"],
+                "user_id": data["user"]["id"]
+            })
+
+            # Обновляем данные в FSMContext
+            await state.update_data(data_from_context)
+            logger.info(f"[{self.__class__.__name__}] Успешная регистрация: user_id={data_from_context['user_id']}")
+            return await super().handle(event, state, data_from_context)
+
+        except TelegramAuthError as e:
             logger.error(f"[{self.__class__.__name__}] Ошибка регистрации пользователя: {event.from_user.id}")
-            await event.message.edit_text("❌ Произошла ошибка регистрации. Обратитесь в поддержку.")
-            return
-
-        data_from_context = await state.get_data()
-
-        if not data_from_context:
-            data_from_context = {}
-
-        data_from_context.update({
-            "access_token": data["access_token"],
-            "refresh_token": data["refresh_token"],
-            "user_id": data["user"]["id"]
-        })
-
-        # Обновляем данные в FSMContext
-        await state.update_data(data_from_context)
-        logger.info(f"[{self.__class__.__name__}] Успешная регистрация: user_id={data_from_context['user_id']}")
-        return await super().handle(event, state, data_from_context)
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при регистрации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
 class FSMUpdateHandler(BaseHandler):
