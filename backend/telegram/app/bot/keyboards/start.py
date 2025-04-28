@@ -4,7 +4,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 class StartKeyboard:
 
     @staticmethod
-    def get_libk_keyboard():
+    def get_link_keyboard():
         return InlineKeyboardMarkup(
             inline_keyboard=[
                 [
