@@ -1,24 +1,21 @@
 import httpx
 from app.config import API_BASE_URL
 from app.utils.logger import logger
-from app.exceptions.telegram_exceptions import (
-    TelegramLoginNotFound,
-    TelegramForbiddenError,
-    TelegramUnauthorizedError,
-    TelegramUnexpectedResponse,
-    TelegramConnectionError,
-    TelegramValidationError,
-    TelegramRegisterExisted,
-    TelegramIncorrectLoginError,
-    TelegramIdentityExisted
+from app.exceptions.request_exceptions import (
+    TokenStorageError,
+    RequestError,
+    RequestUnauthorizedError,
+    RequestServerUnavailableError,
+    RequestUnexpectedError,
 )
 
-class RequestManager():
+class RequestManager:
     def __init__(self):
         self.base_url = API_BASE_URL
 
     async def make_request(self, method, url, state, **kwargs):
         try:
+            logger.debug(f"[{self.__class__.__name__}] [MakeRequest] Попытка создания запроса {method} к серверу от пользователя: {(await state.get_data()).get('user_id')}")
             access_token, refresh_token = await self.get_user_tokens(state)
             async with httpx.AsyncClient() as session:
                  status, data, new_access_token, new_refresh_token = await self.make_authenticated_request(
@@ -31,18 +28,28 @@ class RequestManager():
                     **kwargs
                 )
 
-            if status == 200 or status == 201:
-                print("✅ Ответ от сервера:", data)
+            if status in (200, 201):
+                logger.debug(f"[{self.__class__.__name__}] 🟢 [MakeRequest] Запрос {method} успешен.")
 
-                # Если токены обновились - сохранить в объекте пользователя
                 if new_access_token != access_token or new_refresh_token != refresh_token:
                     await self.set_user_tokens(state, new_access_token, new_refresh_token)
+
                 return data
+
+            elif status == 401:
+                logger.debug(f"[{self.__class__.__name__}] 🟡 [MakeRequest] Запрос {method} вернул 401.")
+                raise RequestUnauthorizedError()
             else:
-                # Нужно залогиниться заново
-                print("Пользователь не авторизован, требуется логин")
+                logger.debug(f"[{self.__class__.__name__}] 🔴 [MakeRequest] Запрос {method} вернул неожиданный статус: {status}.")
+                raise RequestUnexpectedError()
+
+        except httpx.ConnectTimeout:
+            raise RequestServerUnavailableError()
+        except httpx.RequestError:
+            raise RequestServerUnavailableError()
         except Exception as e:
-            pass
+            logger.exception(f"[{self.__class__.__name__}] 🔥 Необработанная ошибка запроса: {e}")
+            raise RequestError()
 
     @staticmethod
     async def make_authenticated_request(session, method, url, access_token, refresh_token, refresh_url, **kwargs):
@@ -74,7 +81,7 @@ class RequestManager():
     @staticmethod
     async def set_user_tokens(state, access_token, refresh_token):
         """Заглушка: сюда можно добавить логику записи токенов"""
-        print("💾 Сохраняем новые токены пользователя...")
+        logger.debug(f"[SetUserTokens] Сохранение токенов пользователя: {(await state.get_data()).get('user_id')}")
         try:
             data_from_context = {}
             data_from_context.update({
@@ -83,15 +90,20 @@ class RequestManager():
             })
             await state.update_data(data_from_context)
         except Exception as e:
-            pass
+            logger.debug(f"[SetUserTokens] Ошибка при сохранении токенов пользователя: {(await state.get_data()).get('user_id')}")
+            raise TokenStorageError(f"Не удалось сохранить токены: {e}")
 
 
     @staticmethod
     async def get_user_tokens(state):
+        logger.debug(f"[SetUserTokens] Получение токенов пользователя: {(await state.get_data()).get('user_id')}")
         try:
             data = await state.get_data()
             access_token = data.get("access_token")
             refresh_token = data.get("refresh_token")
+            if not access_token or not refresh_token:
+                raise TokenStorageError("Токены пользователя отсутствуют в state.")
             return access_token, refresh_token
         except Exception as e:
-            pass
+            logger.debug(f"[SetUserTokens] Ошибка при получение токенов пользователя: {(await state.get_data()).get('user_id')}")
+            raise TokenStorageError(f"Не удалось получить токены: {e}")
