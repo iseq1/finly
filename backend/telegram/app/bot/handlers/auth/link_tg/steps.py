@@ -176,5 +176,6 @@ class MakeLinkHandler(BaseHandler):
 
 class SendWelcomeHandler(BaseHandler):
     async def handle(self, event, state, context=None):
+        from app.bot.keyboards.main_manu import MainMenuKeyboard
         logger.debug(f"[{self.__class__.__name__}] Приветственное сообщение отправлено пользователю {event.from_user.id}")
-        await event.answer("✅ Успешная авторизация и привязка Telegram!")
+        await event.message.edit_text("👋 Вы успешно прошли авторизацию и теперь вам доступен основной функционал системы! Вы можете продолжить перейдя в главное меню по кнопке ниже:", reply_markup=MainMenuKeyboard.go_to_main_menu_keyboard())
