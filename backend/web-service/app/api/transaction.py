@@ -48,7 +48,7 @@ class IncomeList(Resource):
     def get(self):
         """Получение списка всех доходов пользователя"""
         user_id = get_jwt_identity()
-
+        # TODO: make data-range for transactions
         # Получаем все user_cashbox пользователя
         from app.models.auth import UserCashbox
         user_cashboxes = UserCashbox.query.filter_by(user_id=user_id, deleted=False).all()
