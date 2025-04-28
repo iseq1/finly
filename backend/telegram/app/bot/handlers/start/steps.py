@@ -5,7 +5,7 @@ from app.utils.logger import logger
 
 class SendStartMessageHandler(BaseHandler):
     async def handle(self, event, state, context=None):
-        logger.debug(f"[SendStartMessageHandler] Отправка стартового сообщения пользователю {event.from_user.id}")
+        logger.debug(f"[{self.__class__.__name__}] Отправка стартового сообщения пользователю {event.from_user.id}")
 
         await event.answer(
             "👋 Привет! Выберите, что хотите сделать:",
