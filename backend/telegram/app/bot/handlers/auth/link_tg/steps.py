@@ -124,6 +124,7 @@ class TelegramLoginHandler(BaseHandler):
             logger.error(f"[{self.__class__.__name__}] Ошибка авторизации пользователя: {event.from_user.id}")
             text, markup = e.to_user_message_with_markup()
             await event.answer(text, reply_markup=markup)
+
             # Перезапуск цепочки
             from app.bot.handlers.auth.link_tg.chain import LinkTelegramChain
             await state.clear()
