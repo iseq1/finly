@@ -2,11 +2,9 @@ import httpx
 from app.config import API_BASE_URL
 from app.utils.logger import logger
 from app.exceptions.request_exceptions import (
-    TokenStorageError,
-    RequestError,
-    RequestUnauthorizedError,
-    RequestServerUnavailableError,
-    RequestUnexpectedError,
+    RequestServerUnavailableError, RequestBadRequestError, RequestForbiddenError, RequestNotFoundError,
+    RequestConflictError, RequestTooManyRequestsError, RequestUnauthorizedError, RequestUnexpectedError,
+    TokenStorageError
 )
 
 class RequestManager:
@@ -14,11 +12,11 @@ class RequestManager:
         self.base_url = API_BASE_URL
 
     async def make_request(self, method, url, state, **kwargs):
+        logger.debug(f"[{self.__class__.__name__}] [MakeRequest] Попытка создания запроса {method} к серверу от пользователя: {(await state.get_data()).get('user_id')}")
         try:
-            logger.debug(f"[{self.__class__.__name__}] [MakeRequest] Попытка создания запроса {method} к серверу от пользователя: {(await state.get_data()).get('user_id')}")
             access_token, refresh_token = await self.get_user_tokens(state)
             async with httpx.AsyncClient() as session:
-                 status, data, new_access_token, new_refresh_token = await self.make_authenticated_request(
+                status, data, new_access_token, new_refresh_token = await self.make_authenticated_request(
                     session=session,
                     method=method,
                     url=f"{self.base_url}/{url}",
@@ -27,34 +25,35 @@ class RequestManager:
                     refresh_url=f"{self.base_url}/auth/refresh",
                     **kwargs
                 )
-
-            if status in (200, 201):
-                logger.debug(f"[{self.__class__.__name__}] 🟢 [MakeRequest] Запрос {method} успешен.")
-
-                if new_access_token != access_token or new_refresh_token != refresh_token:
-                    await self.set_user_tokens(state, new_access_token, new_refresh_token)
-
-                return data
-
-            elif status == 401:
-                logger.debug(f"[{self.__class__.__name__}] 🟡 [MakeRequest] Запрос {method} вернул 401.")
-                raise RequestUnauthorizedError()
-            else:
-                logger.debug(f"[{self.__class__.__name__}] 🔴 [MakeRequest] Запрос {method} вернул неожиданный статус: {status}.")
-                raise RequestUnexpectedError()
-
-        except httpx.ConnectTimeout:
+        except httpx.RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] 🔴 Ошибка подключения к API при запросе: {e}")
             raise RequestServerUnavailableError()
-        except httpx.RequestError:
-            raise RequestServerUnavailableError()
-        except Exception as e:
-            logger.exception(f"[{self.__class__.__name__}] 🔥 Необработанная ошибка запроса: {e}")
-            raise RequestError()
+
+
+
+        if status in (200, 201):
+            logger.debug(f"[{self.__class__.__name__}] 🟢 [MakeRequest] Запрос {method} успешен.")
+            if new_access_token != access_token or new_refresh_token != refresh_token:
+                await self.set_user_tokens(state, new_access_token, new_refresh_token)
+            return data
+
+        errors_by_code = {
+            400: RequestBadRequestError,
+            403: RequestForbiddenError,
+            404: RequestNotFoundError,
+            409: RequestConflictError,
+            429: RequestTooManyRequestsError,
+            401: RequestUnauthorizedError,
+        }
+        exception_cls = errors_by_code.get(status, RequestUnexpectedError)
+        raise exception_cls() if status in errors_by_code else exception_cls(status)
+
 
     @staticmethod
     async def make_authenticated_request(session, method, url, access_token, refresh_token, refresh_url, **kwargs):
         headers = kwargs.pop('headers', {})
         headers['Authorization'] = f'Bearer {access_token}'
+        headers['Content-Type'] = f'application/json'
 
         response = await session.request(method, url, headers=headers, **kwargs)
         if response.status_code == 401:
@@ -77,33 +76,29 @@ class RequestManager:
             data = response.json()
             return response.status_code, data, access_token, refresh_token
 
-
     @staticmethod
     async def set_user_tokens(state, access_token, refresh_token):
-        """Заглушка: сюда можно добавить логику записи токенов"""
-        logger.debug(f"[SetUserTokens] Сохранение токенов пользователя: {(await state.get_data()).get('user_id')}")
-        try:
-            data_from_context = {}
-            data_from_context.update({
-                "access_token": access_token,
-                "refresh_token": refresh_token
-            })
-            await state.update_data(data_from_context)
-        except Exception as e:
-            logger.debug(f"[SetUserTokens] Ошибка при сохранении токенов пользователя: {(await state.get_data()).get('user_id')}")
-            raise TokenStorageError(f"Не удалось сохранить токены: {e}")
-
+        """Сохраняет токены в состояние пользователя."""
+        user_id = (await state.get_data()).get("user_id")
+        logger.debug(f"[SetUserTokens] Сохранение токенов пользователя: {user_id}")
+        data_from_context = {
+            "access_token": access_token,
+            "refresh_token": refresh_token
+        }
+        await state.update_data(data_from_context)
 
     @staticmethod
     async def get_user_tokens(state):
-        logger.debug(f"[SetUserTokens] Получение токенов пользователя: {(await state.get_data()).get('user_id')}")
-        try:
-            data = await state.get_data()
-            access_token = data.get("access_token")
-            refresh_token = data.get("refresh_token")
-            if not access_token or not refresh_token:
-                raise TokenStorageError("Токены пользователя отсутствуют в state.")
-            return access_token, refresh_token
-        except Exception as e:
-            logger.debug(f"[SetUserTokens] Ошибка при получение токенов пользователя: {(await state.get_data()).get('user_id')}")
-            raise TokenStorageError(f"Не удалось получить токены: {e}")
+        """Получает токены из состояния пользователя. Бросает исключение, если токены не найдены."""
+        user_id = (await state.get_data()).get("user_id")
+        logger.debug(f"[GetUserTokens] Получение токенов пользователя: {user_id}")
+
+        data = await state.get_data()
+        access_token = data.get("access_token")
+        refresh_token = data.get("refresh_token")
+
+        if not access_token or not refresh_token:
+            logger.debug(f"[GetUserTokens] Токены не найдены или неполные у пользователя: {user_id}")
+            raise TokenStorageError()
+
+        return access_token, refresh_token
