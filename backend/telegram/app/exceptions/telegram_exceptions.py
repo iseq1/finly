@@ -86,7 +86,7 @@ class TelegramForbiddenError(TelegramAuthError):
 
 class TelegramConnectionError(TelegramAuthError):
     def __init__(self):
-        super().__init__("Проблема с подключением к серверу авторизации.", code=503)
+        super().__init__("Проблема с подключением к серверу.", code=503)
 
     def to_user_message(self) -> str:
         return "🌐 Сервер временно недоступен. Попробуйте позже."
