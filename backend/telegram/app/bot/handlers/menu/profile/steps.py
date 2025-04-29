@@ -3,6 +3,9 @@ from app.bot.handlers.base import BaseHandler
 from app.bot.keyboards.profile import ProfileKeyboard
 from app.bot.states import EditProfileState
 from app.utils.request import RequestManager
+from app.exceptions.profile_exceptions import ProfileError, ProfileInfoUnavailable
+from app.exceptions.request_exceptions import (
+    TokenStorageError, RequestError, )
 from app.utils.logger import logger
 
 
@@ -15,28 +18,46 @@ class GetProfileInfoHandler(BaseHandler):
 
             if context is None:
                 context = {}
-
             context['user_data'] = data
 
             return await super().handle(event, state, context)
-
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+        except RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при получении информации профиля пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
         except Exception as e:
-            pass
-
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 class GetUserCashboxesHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Получение информации о количестве кэш-боксов авторизированного пользователя {event.from_user.id}")
-
         try:
             request_manager = RequestManager()
             data = await request_manager.make_request(method='GET', url='auth/me/cashboxes', state=state)
             context['user_cashboxes_count'] = len(data)
 
             return await super().handle(event, state, context)
-
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при получении информации о количестве кэш-боксов пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
         except Exception as e:
-            pass
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
 class GetUserBudgetHandler(BaseHandler):
@@ -46,11 +67,20 @@ class GetUserBudgetHandler(BaseHandler):
             request_manager = RequestManager()
             data = await request_manager.make_request(method='GET', url='budget', state=state)
             context['user_budgets_count'] = len(data)
-
             return await super().handle(event, state, context)
-
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+        except RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при получении информации о количестве бюджетов пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
         except Exception as e:
-            pass
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
 class GetUserTransactionsHandler(BaseHandler):
@@ -61,19 +91,28 @@ class GetUserTransactionsHandler(BaseHandler):
             income_data = await request_manager.make_request(method='GET', url='transactions/income', state=state)
             expense_data = await request_manager.make_request(method='GET', url='transactions/expense', state=state)
             context['user_transactions_count'] = len(income_data) + len(expense_data)
-
             return await super().handle(event, state, context)
-
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+        except RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при получении информации о количестве транзакций пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
         except Exception as e:
-            pass
-
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 class GenerateProfileMessageHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Генерация профиля авторизированного пользователя {event.from_user.id}")
         from datetime import datetime
         try:
-            profile_data = context['user_data']
+            print(context)
+            profile_data = context['user_update_data']['user'] if context.get('user_update_data', False) else context['user_data']
             birthday = datetime.fromisoformat(profile_data['birthday']).strftime('%d.%m.%Y')
             last_login = datetime.fromisoformat(profile_data['last_login']).strftime('%d.%m.%Y %H:%M')
             patronymic = profile_data.get('patronymic') or '(не указано)'
@@ -105,7 +144,7 @@ class GenerateProfileMessageHandler(BaseHandler):
         except Exception as e:
             logger.error(
                 f"[{self.__class__.__name__}] Ошибка при генерации профиля авторизированного пользователя {event.from_user.id}")
-            pass
+            print(e)
 
 class SendProfileInfoHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
@@ -171,19 +210,78 @@ class TakingNewFieldHandler(BaseHandler):
             pass
 
 
+class MakeDataDictHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Создание JSON для апдейта данных")
+        try:
+            data = await state.get_data()
+            field_to_edit = data['field_to_edit']
+            new_field = data['new_field']
+
+            request_manager = RequestManager()
+            user_data = await request_manager.make_request(method='GET', url='auth/me', state=state)
+            update_data = {
+                "username": user_data['username'],
+                "email": user_data['email'],
+                "first_name": user_data['first_name'],
+                "last_name": user_data['last_name'],
+                "patronymic": user_data['patronymic'],
+                "phone_number": user_data['phone_number'],
+                "birthday": user_data['birthday'],
+            }
+            update_data[field_to_edit] = new_field
+
+            context['json_to_update'] = update_data
+
+            return await super().handle(event, state, context)
+        except Exception as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка обновление данных авторизированного пользователя {event.from_user.id}")
+            print(e)
+
+
 class EditProfileInfoHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Обновление данных авторизированного пользователя {event.from_user.id}")
         try:
-            data = await state.get_data()
-            print(data['field_to_edit'])
-            print(data['new_field'])
-            print('We ARE THERE DUDE')
-            print(data)
-            # TODO: PUT to server
+
+            request_manager = RequestManager()
+            user_update_data = await request_manager.make_request(method='PUT', url='auth/me', state=state, json=context['json_to_update'])
+            context = user_update_data
+            return await super().handle(event, state, context)
+
             # TODO: delete trash from state in the end + in the exit button (need only access, refresh, userid)
-            pass
+
         except Exception as e:
             logger.error(
                 f"[{self.__class__.__name__}] Ошибка обновление данных авторизированного пользователя {event.from_user.id}")
-            pass
+            # TODO message to user about except
+
+
+
+class NotifyUpdateSuccessHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        try:
+            if context['message'] == 'Профиль успешно обновлен':
+                await event.answer(text='Данные вашего профиля успешно обновлены!', reply_markup=ProfileKeyboard().get_back_profile_menu_keyboard())
+
+        except Exception as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при уведомлении пользователя об успехе обновления данных профиля{event.from_user.id}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
