@@ -97,3 +97,13 @@ class ProfileKeyboard:
                 ]
             ]
         )
+
+    @staticmethod
+    def get_back_profile_menu_keyboard():
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    ProfileKeyboard.back_to_profile_menu_button()
+                ]
+            ]
+        )
