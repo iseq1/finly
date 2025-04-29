@@ -1,4 +1,4 @@
-from app.bot.handlers.menu.profile.steps import EditProfileInfoHandler, TakingNewFieldHandler, WaitNewFieldHandler, GetChangeProfileHandler, GetProfileInfoHandler, SendProfileInfoHandler, GetUserCashboxesHandler, GetUserBudgetHandler, GetUserTransactionsHandler, GenerateProfileMessageHandler
+from app.bot.handlers.menu.profile.steps import NotifyUpdateSuccessHandler, MakeDataDictHandler, EditProfileInfoHandler, TakingNewFieldHandler, WaitNewFieldHandler, GetChangeProfileHandler, GetProfileInfoHandler, SendProfileInfoHandler, GetUserCashboxesHandler, GetUserBudgetHandler, GetUserTransactionsHandler, GenerateProfileMessageHandler
 
 
 class ProfileMenuChain:
@@ -27,8 +27,10 @@ class ProfileMenuChain:
                                 GetChangeProfileHandler(
                                     WaitNewFieldHandler(
                                         TakingNewFieldHandler(
-                                            EditProfileInfoHandler(
-
+                                            MakeDataDictHandler(
+                                                EditProfileInfoHandler(
+                                                    NotifyUpdateSuccessHandler()
+                                                )
                                             )
                                         )
                                     )
