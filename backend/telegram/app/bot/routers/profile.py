@@ -11,6 +11,62 @@ async def handle_profile_menu(callback: CallbackQuery, state: FSMContext):
     chain = ProfileMenuChain().get_profile_chain()
     await chain.handle(callback, state)
 
+@router.callback_query(F.data == "cashbox_menu")
+async def handle_profile_menu(callback: CallbackQuery, state: FSMContext):
+    chain = ProfileMenuChain().get_user_cashbox_chain()
+    await chain.handle(callback, state)
+
+@router.callback_query(F.data == "user_cashbox_details")
+async def details_cashbox(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    user_cashboxes = data.get("user_cashboxes", [])
+
+    index = (data.get("user_cashbox_index", 0)) % len(user_cashboxes)
+    await state.update_data(user_cashbox_index=index)
+    await state.update_data(user_cashbox_details=True)
+
+    from app.bot.handlers.menu.profile.steps import ShowUserCashbox
+    handler = ShowUserCashbox()
+    await handler.handle(callback, state)
+
+@router.callback_query(F.data == "user_cashbox_back")
+async def details_cashbox(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    user_cashboxes = data.get("user_cashboxes", [])
+
+    index = (data.get("user_cashbox_index", 0)) % len(user_cashboxes)
+    await state.update_data(user_cashbox_index=index)
+    await state.update_data(user_cashbox_details=False)
+
+    from app.bot.handlers.menu.profile.steps import ShowUserCashbox
+    handler = ShowUserCashbox()
+    await handler.handle(callback, state)
+
+@router.callback_query(F.data == "user_cashbox_next")
+async def next_cashbox(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    user_cashboxes = data.get("user_cashboxes", [])
+
+    index = (data.get("user_cashbox_index", 0) + 1) % len(user_cashboxes)
+    await state.update_data(user_cashbox_index=index)
+
+    from app.bot.handlers.menu.profile.steps import ShowUserCashbox
+    handler = ShowUserCashbox()
+    await handler.handle(callback, state)
+
+@router.callback_query(F.data == "user_cashbox_prev")
+async def next_cashbox(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    user_cashboxes = data.get("user_cashboxes", [])
+
+    index = (data.get("user_cashbox_index", 0) - 1) % len(user_cashboxes)
+
+    await state.update_data(user_cashbox_index=index)
+
+    from app.bot.handlers.menu.profile.steps import ShowUserCashbox
+    handler = ShowUserCashbox()
+    await handler.handle(callback, state)
+
 @router.callback_query(F.data == "put_me_menu")
 async def handle_link_telegram(callback: CallbackQuery, state: FSMContext):
     chain = ProfileMenuChain().get_profile_chain()
@@ -58,11 +114,75 @@ async def handle_field_input(message: Message, state: FSMContext):
             await state.update_data(chain_step=step + 1)
 
 
+@router.callback_query(F.data == "create_user_cashbox")
+async def create_user_cashbox(callback: CallbackQuery, state: FSMContext):
+    chain = ProfileMenuChain().get_cashbox_menu_chain()
+    await chain.handle(callback, state)
 
 
+@router.callback_query(F.data == "back_to_profile_menu_from_providers_menu")
+async def create_user_cashbox(callback: CallbackQuery, state: FSMContext):
+    from app.bot.handlers.menu.profile.steps import ClearAfterProvidersHandler
+    handler = ClearAfterProvidersHandler()
+    await handler.handle(callback, state)
 
 
+@router.callback_query(F.data == "provider_cashbox_next")
+async def next_cashbox(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    cashbox_providers = data.get("cashbox_providers", [])
+
+    index = (data.get("cashbox_providers_index", 0) + 1) % len(cashbox_providers)
+    await state.update_data(cashbox_providers_index=index)
+
+    from app.bot.handlers.menu.profile.steps import ShowCashboxProvidersHandler
+    handler = ShowCashboxProvidersHandler()
+    await handler.handle(callback, state)
+
+@router.callback_query(F.data == "provider_cashbox_prev")
+async def next_cashbox(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    cashbox_providers = data.get("cashbox_providers", [])
+
+    index = (data.get("cashbox_providers_index", 0) - 1) % len(cashbox_providers)
+
+    await state.update_data(cashbox_providers_index=index)
+
+    from app.bot.handlers.menu.profile.steps import ShowCashboxProvidersHandler
+    handler = ShowCashboxProvidersHandler()
+    await handler.handle(callback, state)
+
+@router.callback_query(F.data == "get_provider")
+async def get_providers_cashboxes(callback: CallbackQuery, state: FSMContext):
+    chain = ProfileMenuChain().get_create_user_cashbox_chain()
+    await chain.handle(callback, state)
 
 
+@router.callback_query(F.data == "cashbox_by_provider_next")
+async def next_cashbox(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    cashboxes_by_provider = data.get("cashboxes_by_provider", [])
+
+    index = (data.get("cashbox_by_provider_index", 0) + 1) % len(cashboxes_by_provider)
+    await state.update_data(cashbox_by_provider_index=index)
+
+    from app.bot.handlers.menu.profile.steps import ShowCashboxesByProviderHandler
+    handler = ShowCashboxesByProviderHandler()
+    await handler.handle(callback, state)
+
+@router.callback_query(F.data == "cashbox_by_provider_prev")
+async def next_cashbox(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    cashboxes_by_provider = data.get("cashboxes_by_provider", [])
+
+    index = (data.get("cashbox_by_provider_index", 0) - 1) % len(cashboxes_by_provider)
+    await state.update_data(cashbox_by_provider_index=index)
+
+    from app.bot.handlers.menu.profile.steps import ShowCashboxesByProviderHandler
+    handler = ShowCashboxesByProviderHandler()
+    await handler.handle(callback, state)
 
 
+@router.callback_query(F.data == "cashbox_by_provider_take")
+async def next_cashbox(callback: CallbackQuery, state: FSMContext):
+    pass
