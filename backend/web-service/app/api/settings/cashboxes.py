@@ -48,10 +48,24 @@ class CashboxList(Resource):
     """Управление кэш-боксами"""
 
     @jwt_required()
-    @api.doc(security='jwt')
+    @api.doc(security='jwt',
+             params={
+                 'provider_id': "ID-провайдера кэш-боксов",
+                 'type_id': "ID-типа кэш-боксов",
+             })
     def get(self):
         """Получение списка всех кэш-боксов"""
-        cashboxes = Cashbox.query.filter_by(deleted=False).all()
+        provider_id = request.args.get('provider_id')  # ID-провайдера
+        type_id = request.args.get('type_id')  # ID-типа
+
+        cashboxes = Cashbox.query.filter_by(deleted=False)
+
+        if provider_id:
+            cashboxes = cashboxes.filter(Cashbox.provider_id == int(provider_id))
+        if type_id:
+            cashboxes = cashboxes.filter(Cashbox.type_id == int(type_id))
+
+        cashboxes = cashboxes.all()
         return CashboxSchema(many=True).dump(cashboxes)
 
     @jwt_required()
