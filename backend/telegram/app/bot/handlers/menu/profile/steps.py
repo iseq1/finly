@@ -35,6 +35,7 @@ class GetProfileInfoHandler(BaseHandler):
             await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
             return False
 
+
 class GetUserCashboxesHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Получение информации о количестве кэш-боксов авторизированного пользователя {event.from_user.id}")
@@ -106,6 +107,7 @@ class GetUserTransactionsHandler(BaseHandler):
             await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
             return False
 
+
 class GenerateProfileMessageHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Генерация профиля авторизированного пользователя {event.from_user.id}")
@@ -141,10 +143,20 @@ class GenerateProfileMessageHandler(BaseHandler):
             context['profile_message'] = message
             return await super().handle(event, state, context)
 
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+        except RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при генерации профиля пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
         except Exception as e:
-            logger.error(
-                f"[{self.__class__.__name__}] Ошибка при генерации профиля авторизированного пользователя {event.from_user.id}")
-            print(e)
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
 
 class SendProfileInfoHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
@@ -172,10 +184,20 @@ class GetChangeProfileHandler(BaseHandler):
                 reply_markup=ProfileKeyboard.get_me_change_keyboard()
             )
             return False
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+        except RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при открытии меню изменения личной информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
         except Exception as e:
-            logger.error(
-                f"[{self.__class__.__name__}] Ошибка при открытии меню изменений личный информации авторизированного пользователя {event.from_user.id}")
-            pass
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
 
 class WaitNewFieldHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
@@ -188,26 +210,60 @@ class WaitNewFieldHandler(BaseHandler):
             await event.message.edit_text(f"Введите новое значение для поля: {data['field_to_edit']}")
 
             return False
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+        except RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
         except Exception as e:
-            logger.error(
-                f"[{self.__class__.__name__}] Ошибка при ожидание данных для обновления информации авторизированного пользователя {event.from_user.id}")
-            pass
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
 
 class TakingNewFieldHandler(BaseHandler):
 
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Получение данных для обновления информации авторизированного пользователя {event.from_user.id}")
         try:
+            from app.utils.profile import ValidateUserInput
             # TODO: validate per type
             field = event.text.strip()
 
-            await state.update_data(new_field=field)
+            data = await state.get_data()
+            field_to_edit = data['field_to_edit']
+
+            success, ref = ValidateUserInput().validate_field(type=field_to_edit, field=field)
+
+            if not success:
+                logger.error(f"[{self.__class__.__name__}] Ошибка пользовательского ввода")
+                raise ref
+
+            await state.update_data(new_field=ref)
             return await super().handle(event, state, context)
 
-
+        except ValueError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка пользовательского ввода")
+            await event.answer(f'{e}\n\nПопробуйте ещё раз!')
+            return False
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
         except Exception as e:
-            logger.error(f"[{self.__class__.__name__}] Ошибка при получении данных для обновления информации авторизированного пользователя {event.from_user.id}")
-            pass
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
 class MakeDataDictHandler(BaseHandler):
@@ -217,7 +273,6 @@ class MakeDataDictHandler(BaseHandler):
             data = await state.get_data()
             field_to_edit = data['field_to_edit']
             new_field = data['new_field']
-
             request_manager = RequestManager()
             user_data = await request_manager.make_request(method='GET', url='auth/me', state=state)
             update_data = {
@@ -234,10 +289,21 @@ class MakeDataDictHandler(BaseHandler):
             context['json_to_update'] = update_data
 
             return await super().handle(event, state, context)
-        except Exception as e:
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
             logger.error(
-                f"[{self.__class__.__name__}] Ошибка обновление данных авторизированного пользователя {event.from_user.id}")
-            print(e)
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
 class EditProfileInfoHandler(BaseHandler):
@@ -252,11 +318,20 @@ class EditProfileInfoHandler(BaseHandler):
 
             # TODO: delete trash from state in the end + in the exit button (need only access, refresh, userid)
 
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
         except Exception as e:
-            logger.error(
-                f"[{self.__class__.__name__}] Ошибка обновление данных авторизированного пользователя {event.from_user.id}")
-            # TODO message to user about except
-
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
 class NotifyUpdateSuccessHandler(BaseHandler):
@@ -264,24 +339,357 @@ class NotifyUpdateSuccessHandler(BaseHandler):
         try:
             if context['message'] == 'Профиль успешно обновлен':
                 await event.answer(text='Данные вашего профиля успешно обновлены!', reply_markup=ProfileKeyboard().get_back_profile_menu_keyboard())
-
+                return False
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
         except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class GetUserCashboxInfo(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение информации пользовательских кэш-боксов авторизированного пользователя {event.from_user.id}")
+        try:
+            request_manager = RequestManager()
+            data = await request_manager.make_request(method='GET', url='auth/me/cashboxes', state=state)
+            if context is None:
+                context = {}
+            context['user_cashboxes'] = data
+            return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
             logger.error(
-                f"[{self.__class__.__name__}] Ошибка при уведомлении пользователя об успехе обновления данных профиля{event.from_user.id}")
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class CheckUserCashboxesHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Проверка пользовательских кэш-боксов авторизированного пользователя {event.from_user.id}")
+        try:
+            user_cashboxes = context['user_cashboxes']
+            if len(user_cashboxes) == 0:
+                await event.message.edit_text(text='У вас пока нет ни единого пользовательского кэш-бокса!', reply_markup=ProfileKeyboard().get_empty_user_cashbox_menu_keyboard())
+            else:
+                await state.update_data(user_cashboxes=user_cashboxes)
+                return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class ShowUserCashbox(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Демонстрация пользовательских кэш-боксов авторизированного пользователя {event.from_user.id}")
+        try:
+            data = await state.get_data()
+            user_cashboxes = data.get('user_cashboxes')
+
+            index = data.get("user_cashbox_index", 0)
+            cashbox = user_cashboxes[index]
+
+            await event.message.edit_text(self._format_cashbox(cashbox, index, len(user_cashboxes)), reply_markup=ProfileKeyboard().get_more_action_user_cashbox_keyboard() if data.get('user_cashbox_details', False) else ProfileKeyboard().get_user_cashbox_menu_keyboard(), parse_mode='MarkdownV2')
+            return True
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+    def _format_cashbox(self, cashbox: dict, index: int, total: int) -> str:
+        box = cashbox.get("cashbox", {})
+        provider = box.get("provider", {})
+        cashbox_type = box.get("type", {})
+
+        def esc(text):
+            """Экранирование спецсимволов MarkdownV2"""
+            if not isinstance(text, str):
+                text = str(text)
+            return (
+                text.replace('\\', '\\\\')
+                .replace('.', '\\.')
+                .replace('-', '\\-')
+                .replace('(', '\\(')
+                .replace(')', '\\)')
+                .replace('[', '\\[')
+                .replace(']', '\\]')
+                .replace('{', '\\{')
+                .replace('}', '\\}')
+                .replace('!', '\\!')
+                .replace('=', '\\=')
+                .replace('+', '\\+')
+                .replace('*', '\\*')
+                .replace('_', '\\_')
+                .replace('`', '\\`')
+                .replace('>', '\\>')
+                .replace('#', '\\#')
+                .replace('|', '\\|')
+                .replace('~', '\\~')
+            )
+
+        return (
+            f"💼 *Кэш\\-бокс {index + 1}/{total}*\n\n"
+            f"🏷️ *Название:* {esc(box.get('name', '—'))}\n"
+            f"🏢 *Провайдер:* {esc(provider.get('name', '—'))}\n"
+            f"📦 *Тип:* {esc(cashbox_type.get('name', '—'))}\n"
+            f"💰 *Баланс:* {esc(cashbox.get('balance', '0'))} {esc(box.get('currency', '—'))}\n"
+            f"✏️ *Пользовательское имя:* {esc(cashbox.get('custom_name', '—'))}\n"
+            f"🗒️ *Заметка:* {esc(cashbox.get('note', '—'))}"
+        )
+
+
+class GetProviderInfoHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение списка провайдеров кэш-боксов для авторизированного пользователя {event.from_user.id}")
+        try:
+            request_manager = RequestManager()
+            data = await request_manager.make_request(method='GET', url='settings/cashboxes-provider', state=state)
+            if context is None:
+                context = {}
+            context['cashbox_providers'] = data
+            return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class CheckCashboxProvidersHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Проверка провайдеров кэш-боксов")
+        try:
+            cashbox_providers = context['cashbox_providers']
+            if len(cashbox_providers) == 0:
+                await event.message.edit_text(text='В системе пока не зарегистрировано ни одного кэш-бокса!\nЖдём вас позже <3', reply_markup=ProfileKeyboard().get_back_profile_menu_keyboard())
+            else:
+                await state.update_data(cashbox_providers=cashbox_providers)
+                return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
 
+class ShowCashboxProvidersHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Демонстрация провайдеров кэш-боксов для авторизированного пользователя {event.from_user.id}")
+        try:
+            data = await state.get_data()
+            cashbox_providers = data.get('cashbox_providers')
+
+            index = data.get("cashbox_providers_index", 0)
+            provider = cashbox_providers[index]
+
+            await event.message.delete()
+            await event.message.answer_photo(
+                photo=provider.get('logo_url'),
+                reply_markup=ProfileKeyboard().get_provider_cashbox_menu_keyboard(provider.get('name', None))
+            )
+            return True
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации провайдеров кэш-боксов пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+class ClearAfterProvidersHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Возвращение в меню профиля авторизированного пользователя {event.from_user.id}")
+        try:
+            await event.message.delete()
+            await event.message.answer(text='Меню профиля:', reply_markup=ProfileKeyboard.get_profile_menu_keyboard())
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при возвращении в меню профиля пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
+class TakingProviderInfoHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Обработка выбора провайдера кэш-боксов авторизированного пользователя {event.from_user.id}")
+        try:
+            data = await state.get_data()
+            cashbox_providers = data.get("cashbox_providers", [])
+            index = (data.get("cashbox_providers_index", 0)) % len(cashbox_providers)
+            if context is None:
+                context = {}
+            context['provider'] = cashbox_providers[index]
+            return await super().handle(event, state, context)
+        except Exception as e:
+            logger.exception(
+                f"[{self.__class__.__name__}] Неизвестная ошибка при обработке выбора провайдера кэш-боксов авторизированного пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
+class GetCashboxesByProvider(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение кэш-боксов по провайдеру для авторизированного пользователя {event.from_user.id}")
+        try:
+            request_manager = RequestManager()
+            data = await request_manager.make_request(method='GET', url=f'settings/cashboxes?provider_id={(context["provider"]).get("id")}', state=state)
+            context['cashboxes_by_provider'] = data
+            return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при получении кэш-боксов по провайдеру для пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при получении кэш-боксов по провайдеру пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+class CheckCashboxesByProviderHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Проверка кэш-боксов по провайдеру для авторизированного пользователя {event.from_user.id}")
+        try:
+            if context['cashboxes_by_provider'] and len(context['cashboxes_by_provider'])!=0:
+                await state.update_data(cashboxes_by_provider=context['cashboxes_by_provider'])
+                return await super().handle(event, state, context)
+            else:
+                await event.message.delete()
+                await event.message.edit_text(text='В системе пока не зарегистрировано ни одного кэш-бокса от данного провайдера!\nЖдём вас позже <3', reply_markup=ProfileKeyboard().get_back_profile_menu_keyboard())
+                return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при проверке кэш-боксов по провайдеру: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+class ShowCashboxesByProviderHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Демонстрация кэш-боксов по провайдеру для авторизированного пользователя {event.from_user.id}")
+        try:
+            data = await state.get_data()
+            cashboxes_by_provider = data.get('cashboxes_by_provider')
+            index = data.get("cashbox_by_provider_index", 0)
+            cashbox = cashboxes_by_provider[index]
+            await event.message.delete()
+            await event.message.answer(self._format_cashbox(cashbox, index, len(cashboxes_by_provider)), reply_markup=ProfileKeyboard().get_cashboxes_by_provider_menu_keyboard(), parse_mode='MarkdownV2')
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов по провайдеру: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+    def _format_cashbox(self, cashbox: dict, index: int, total: int) -> str:
+        provider = cashbox.get("provider", {})
+        cashbox_type = cashbox.get("type", {})
+
+        def esc(text):
+            """Экранирование спецсимволов MarkdownV2"""
+            if not isinstance(text, str):
+                text = str(text)
+            return (
+                text.replace('\\', '\\\\')
+                .replace('.', '\\.')
+                .replace('-', '\\-')
+                .replace('(', '\\(')
+                .replace(')', '\\)')
+                .replace('[', '\\[')
+                .replace(']', '\\]')
+                .replace('{', '\\{')
+                .replace('}', '\\}')
+                .replace('!', '\\!')
+                .replace('=', '\\=')
+                .replace('+', '\\+')
+                .replace('*', '\\*')
+                .replace('_', '\\_')
+                .replace('`', '\\`')
+                .replace('>', '\\>')
+                .replace('#', '\\#')
+                .replace('|', '\\|')
+                .replace('~', '\\~')
+            )
+
+        return (
+            f"💼 *Кэш\\-бокс {index + 1}/{total}*\n\n"
+            f"🏷️ *Название:* {esc(cashbox.get('name', '—'))}\n"
+            f"🏢 *Провайдер:* {esc(provider.get('name', '—'))}\n"
+            f"📦 *Тип:* {esc(cashbox_type.get('name', '—'))}\n"
+            f"💰 *Валюта:* {esc(cashbox.get('currency', '—'))}\n"
+            f"✏️ *Описание:* {esc(cashbox.get('description', '—'))}\n"
+
+        )
 
 
+class TakingNewUserCashboxInfoHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение информации о новом пользовательском кэш-боксе авторизированного пользователя {event.from_user.id}")
+        try:
+            data = await state.get_data()
+            cashboxes_by_provider = data.get('cashboxes_by_provider')
+            index = data.get("cashbox_by_provider_index", 0)
+            cashbox = cashboxes_by_provider[index]
+        #   TODO  Добавить возможность указания кастомного имени и записки
+        except Exception as e:
+            logger.exception(
+                f"[{self.__class__.__name__}] Неизвестная ошибка при получении информации о новом пользовательском кэш-боксе: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
-
-
-
-
-
-
+class PostNewUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Создание нового пользовательского кэш-бокса авторизированного пользователя {event.from_user.id}")
+        # try:
+        #     pass
+        #
