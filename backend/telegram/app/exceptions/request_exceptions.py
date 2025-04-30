@@ -58,7 +58,7 @@ class RequestBadRequestError(RequestStatusCodeError):
         super().__init__("Некорректный запрос", code=400)
 
     def to_user_message(self) -> str:
-        return "⚠️ Некорректный запрос. Пожалуйста, проверьте введённые данные."
+        return "⚠️ Некорректный запрос. Пожалуйста, проверьте введённые данные.\nВероятнее всего, ошибка возникает по причине некорректного ввода. Либо переданные данные не устраивают сервер, либо передаваемые данные уже существуют в системе и они уникальны!"
 
 
 class RequestForbiddenError(RequestStatusCodeError):
