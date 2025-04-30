@@ -1,4 +1,9 @@
-from app.bot.handlers.menu.profile.steps import NotifyUpdateSuccessHandler, MakeDataDictHandler, EditProfileInfoHandler, TakingNewFieldHandler, WaitNewFieldHandler, GetChangeProfileHandler, GetProfileInfoHandler, SendProfileInfoHandler, GetUserCashboxesHandler, GetUserBudgetHandler, GetUserTransactionsHandler, GenerateProfileMessageHandler
+from app.bot.handlers.menu.profile.steps import NotifyUpdateSuccessHandler, MakeDataDictHandler, EditProfileInfoHandler, \
+    TakingNewFieldHandler, WaitNewFieldHandler, GetChangeProfileHandler, GetProfileInfoHandler, SendProfileInfoHandler, \
+    GetUserCashboxesHandler, GetUserBudgetHandler, GetUserTransactionsHandler, GenerateProfileMessageHandler, \
+    GetUserCashboxInfo, CheckUserCashboxesHandler, ShowUserCashbox, GetProviderInfoHandler, \
+    CheckCashboxProvidersHandler, ShowCashboxProvidersHandler, TakingProviderInfoHandler, GetCashboxesByProvider, \
+    CheckCashboxesByProviderHandler, ShowCashboxesByProviderHandler
 
 
 class ProfileMenuChain:
@@ -37,6 +42,38 @@ class ProfileMenuChain:
                                 )
                             )
                         )
+                    )
+                )
+            )
+        )
+
+    @staticmethod
+    def get_user_cashbox_chain():
+        return GetUserCashboxInfo(
+            CheckUserCashboxesHandler(
+                ShowUserCashbox(
+
+                )
+            )
+        )
+
+    @staticmethod
+    def get_cashbox_menu_chain():
+        return GetProviderInfoHandler(
+            CheckCashboxProvidersHandler(
+                ShowCashboxProvidersHandler(
+
+                )
+            )
+        )
+
+    @staticmethod
+    def get_create_user_cashbox_chain():
+        return TakingProviderInfoHandler(
+            GetCashboxesByProvider(
+                CheckCashboxesByProviderHandler(
+                    ShowCashboxesByProviderHandler(
+
                     )
                 )
             )
