@@ -508,7 +508,17 @@ class UserProfile(Resource):
             user = User.query.get_or_404(user_id)
             
             user_data = UserUpdateSchema().load(request.json)
-            
+
+            if user_data['username']:
+                exist_user = User.query.filter_by(username=user_data['username']).first()
+                if exist_user and exist_user.id != int(user_id):
+                    raise ValidationError('Данное пользовательское имя уже есть в системе!')
+
+            if user_data['email']:
+                exist_user = User.query.filter_by(username=user_data['email']).first()
+                if exist_user and exist_user.id != int(user_id):
+                    raise ValidationError('Данный email имя уже есть в системе!')
+
             # Проверка текущего пароля при изменении
             if 'new_password' in user_data:
                 if not user.check_password(user_data['current_password']):
@@ -525,7 +535,7 @@ class UserProfile(Resource):
             return {
                 'message': 'Профиль успешно обновлен',
                 'user': UserCreateSchema(exclude=['password']).dump(user)
-            }
+            }, 200
             
         except ValidationError as e:
             return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
