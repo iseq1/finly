@@ -24,7 +24,7 @@ class CashboxSchema(BaseSchema):
 
     type = fields.Nested('CashboxTypeSchema', only=('name', 'code'), dump_only=True)
     provider = fields.Nested('CashboxProviderSchema', only=('name', 'logo_url', 'color'), dump_only=True)
-    user_cashboxes = fields.List(fields.Nested('UserCashboxSchema'), only=('user_id', 'cashbox_id', 'balance'), dump_only=True)
+    # user_cashboxes = fields.List(fields.Nested('UserCashboxSchema'), only=('user_id', 'cashbox_id', 'balance'), dump_only=True)
 
     @validates("name")
     def validate_name(self, value):
