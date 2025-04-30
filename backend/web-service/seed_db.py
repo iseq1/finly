@@ -195,7 +195,7 @@ def seed_cashboxes():
         {
             'name': 'Т-Банк',
             'full_name': 'АО ТБанк',
-            'logo_url': 'logo_url',
+            'logo_url': 'https://cdn.tbank.ru/static/pfa-multimedia/images/de8a4fa0-0b29-4901-a678-35f93d358cdf.png',
             'alt_logo_url': 'alt_logo_url',
             'color': '#f8d81c',
             'second_color': '#2c3844',
@@ -205,7 +205,7 @@ def seed_cashboxes():
         {
             'name': 'Альфа-Банк',
             'full_name': 'АО Альфа-Банк',
-            'logo_url': 'logo_url',
+            'logo_url': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Alfa-Bank.svg/1280px-Alfa-Bank.svg.png',
             'alt_logo_url': 'alt_logo_url',
             'color': '#EF3124',
             'second_color': '#000000',
@@ -215,7 +215,7 @@ def seed_cashboxes():
         {
             'name': 'СберБанк',
             'full_name': 'ПАО Сбербанк',
-            'logo_url': 'logo_url',
+            'logo_url': 'https://free-png.ru/wp-content/uploads/2020/09/sberbank__-01.png',
             'alt_logo_url': 'alt_logo_url',
             'color': '#276EB5',
             'second_color': '#003B85',
@@ -225,7 +225,7 @@ def seed_cashboxes():
         {
             'name': 'Наличка',
             'full_name': 'Наличные средства',
-            'logo_url': 'logo_url',
+            'logo_url': 'https://w7.pngwing.com/pngs/963/501/png-transparent-money-others-stack-presentation-logo.png',
             'alt_logo_url': 'alt_logo_url',
             'color': '#276EB5',
             'second_color': '#003B85',
@@ -235,7 +235,7 @@ def seed_cashboxes():
         {
             'name': 'Binance',
             'full_name': 'Binance DEX',
-            'logo_url': 'logo_url',
+            'logo_url': 'https://download.logo.wine/logo/Binance/Binance-Logo.wine.png',
             'alt_logo_url': 'alt_logo_url',
             'color': '#f3ba2f',
             'second_color': '#f3ba2f',
