@@ -176,7 +176,7 @@ class UserCashboxSchema(BaseSchema):
 
     # Связи
     user = fields.Nested('UserBaseSchema', only=('username', 'first_name', 'last_name'), dump_only=True)
-    cashbox = fields.Nested('CashboxSchema', only=('name', 'currency'), dump_only=True)
+    cashbox = fields.Nested('CashboxSchema', only=('name', 'currency', 'icon', 'type.name', 'provider.name'), dump_only=True)
 
 
 class UserCashboxSchemaHistory(HistorySchema):
