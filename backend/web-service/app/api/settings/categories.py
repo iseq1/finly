@@ -3,6 +3,7 @@ API для управления категориями
 """
 from flask import request
 from flask_restx import Resource, fields
+from sqlalchemy import func
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from app.models.settings.categories import Category, Subcategory
@@ -35,11 +36,31 @@ class CategoryList(Resource):
     """Управление категориями"""
 
     @jwt_required()
-    @api.doc(security='jwt')
+    @api.doc(security='jwt',
+             params={
+                 'type': 'Тип категории income/expense'
+             })
     def get(self):
         """Получения списка всех категорий"""
-        categories = Category.query.filter_by(deleted=False).all()
-        return CategorySchema(many=True).dump(categories)
+        try:
+            category_type = request.args.get('type')  # Тип категории
+
+            categories = Category.query.filter_by(deleted=False)
+
+            if category_type:
+                if category_type == 'income':
+                    categories = categories.filter(func.cast(Category.code, db.String).startswith('21'))
+                elif category_type == 'expense':
+                    categories = categories.filter(func.cast(Category.code, db.String).startswith('89'))
+                else:
+                    return {'message': 'Неверно указан тип категории'}, 400
+
+            categories = categories.all()
+            return CategorySchema(many=True).dump(categories)
+
+        except ValidationError as e:
+            return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
+
 
     @jwt_required()
     # @permission_required('settings.manage')
@@ -149,10 +170,20 @@ class SubcategoryList(Resource):
     """Управление подкатегориями"""
 
     @jwt_required()
-    @api.doc(security='jwt')
+    @api.doc(security='jwt',
+             params={
+                 'category_id': 'ID-категории'
+             })
     def get(self):
         """Получения списка всех подкатегорий"""
-        subcategories = Subcategory.query.filter_by(deleted=False).all()
+        category_id = request.args.get('category_id')  # ID-категории
+
+        subcategories = Subcategory.query.filter_by(deleted=False)
+
+        if category_id:
+            subcategories = subcategories.filter_by(category_id=category_id)
+
+        subcategories = subcategories.all()
         return SubcategorySchema(many=True).dump(subcategories)
 
     @jwt_required()
