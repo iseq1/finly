@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from app.bot.handlers.menu.profile.chain import ProfileMenuChain
-from app.bot.states import EditProfileState
+from app.bot.states import EditProfileState, CreateNewUserCashbox
 
 router = Router()
 
@@ -154,6 +154,10 @@ async def next_cashbox(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "get_provider")
 async def get_providers_cashboxes(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    if data.get('new_user_cashbox'):
+        await state.update_data(new_user_cashbox={})
+
     chain = ProfileMenuChain().get_create_user_cashbox_chain()
     await chain.handle(callback, state)
 
@@ -185,4 +189,86 @@ async def next_cashbox(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "cashbox_by_provider_take")
 async def next_cashbox(callback: CallbackQuery, state: FSMContext):
-    pass
+    data = await state.get_data()
+    cashboxes_by_provider = data.get("cashboxes_by_provider", [])
+
+    index = (data.get("cashbox_by_provider_index", 0)) % len(cashboxes_by_provider)
+    await state.update_data(cashbox_by_provider_index=index)
+    if not data.get('new_user_cashbox', False):
+        await state.update_data(new_user_cashbox={})
+
+
+    from app.bot.handlers.menu.profile.steps import TakingNewUserCashboxInfoHandler
+    handler = TakingNewUserCashboxInfoHandler()
+    await handler.handle(callback, state)
+
+
+@router.callback_query(F.data=='set_balance_user_cashbox')
+async def process_field_choice(callback: CallbackQuery, state: FSMContext):
+    from app.bot.handlers.menu.profile.steps import WaitBalanceUserCashboxHandler
+    handler = WaitBalanceUserCashboxHandler()
+    await handler.handle(callback, state)
+
+
+@router.message(CreateNewUserCashbox.waiting_for_balance)
+async def handle_field_input(message: Message, state: FSMContext):
+    handler = ProfileMenuChain().get_balance_new_user_cashbox_chain()
+    await handler.handle(message, state)
+
+
+@router.callback_query(F.data=='set_custom_name_user_cashbox')
+async def process_field_choice(callback: CallbackQuery, state: FSMContext):
+    from app.bot.handlers.menu.profile.steps import WaitCustomNameUserCashboxHandler
+    handler = WaitCustomNameUserCashboxHandler()
+    await handler.handle(callback, state)
+
+
+@router.message(CreateNewUserCashbox.waiting_for_custom_name)
+async def handle_field_input(message: Message, state: FSMContext):
+    handler = ProfileMenuChain().get_custom_name_new_user_cashbox_chain()
+    await handler.handle(message, state)
+
+@router.callback_query(F.data=='set_note_user_cashbox')
+async def process_field_choice(callback: CallbackQuery, state: FSMContext):
+    from app.bot.handlers.menu.profile.steps import WaiNoteUserCashboxHandler
+    handler = WaiNoteUserCashboxHandler()
+    await handler.handle(callback, state)
+
+@router.callback_query(F.data=='set_is_auto_update_user_cashbox')
+async def process_field_choice(callback: CallbackQuery, state: FSMContext):
+    from app.bot.handlers.menu.profile.steps import TakingNewUserCashboxInfoHandler
+    data = await state.get_data()
+    new_user_cashbox = data.get('new_user_cashbox')
+    is_auto_update = new_user_cashbox.get('is_auto_update', False)
+    new_user_cashbox['is_auto_update'] = not is_auto_update
+    await state.update_data(new_user_cashbox=new_user_cashbox)
+    handler = TakingNewUserCashboxInfoHandler()
+    await handler.handle(callback, state)
+
+@router.message(CreateNewUserCashbox.waiting_for_note)
+async def handle_field_input(message: Message, state: FSMContext):
+    handler = ProfileMenuChain().get_note_new_user_cashbox_chain()
+    await handler.handle(message, state)
+
+@router.callback_query(F.data == 'post_new_user_cashbox')
+async def post_user_cashbox(callback: CallbackQuery, state: FSMContext):
+    chain = ProfileMenuChain().get_post_new_user_cashbox_chain()
+    await chain.handle(callback, state)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
