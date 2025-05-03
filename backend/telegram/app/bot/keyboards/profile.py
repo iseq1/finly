@@ -74,7 +74,6 @@ class ProfileKeyboard:
     def get_back_to_profile_menu_from_providers_menu_button():
         return InlineKeyboardButton(text='Вернуться в меню профиля', callback_data='back_to_profile_menu_from_providers_menu')
 
-
     @staticmethod
     def get_change_first_name_button():
         return InlineKeyboardButton(text='Имя', callback_data='change_first_name')
@@ -102,6 +101,71 @@ class ProfileKeyboard:
     @staticmethod
     def get_change_birthday_button():
         return InlineKeyboardButton(text='День рождение', callback_data='change_birthday')
+
+    @staticmethod
+    def get_set_balance_user_cashbox_button():
+        return InlineKeyboardButton(text='Баланс', callback_data='set_balance_user_cashbox')
+
+    @staticmethod
+    def get_set_is_auto_update_user_cashbox_button(flag):
+        if flag:
+            return InlineKeyboardButton(text='Автообновление ✔️', callback_data='set_is_auto_update_user_cashbox')
+        return InlineKeyboardButton(text='Автообновление ❌', callback_data='set_is_auto_update_user_cashbox')
+
+    @staticmethod
+    def get_set_custom_name_user_cashbox_button():
+        return InlineKeyboardButton(text='Кастомное имя', callback_data='set_custom_name_user_cashbox')
+
+    @staticmethod
+    def get_set_note_user_cashbox_button():
+        return InlineKeyboardButton(text='Примечание', callback_data='set_note_user_cashbox')
+
+    @staticmethod
+    def get_back_to_cashbox_by_provider_menu_button():
+        return InlineKeyboardButton(text='Вернуться обратно', callback_data='get_provider')
+
+    @staticmethod
+    def get_make_new_user_cashbox_button():
+        return InlineKeyboardButton(text='Создать пользовательский кэш-бокс', callback_data='post_new_user_cashbox')
+
+    @staticmethod
+    def get_set_new_user_cashbox_keyboard(flag):
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    ProfileKeyboard.get_set_balance_user_cashbox_button(),
+                    ProfileKeyboard.get_set_is_auto_update_user_cashbox_button(flag)
+                ],
+                [
+                    ProfileKeyboard.get_set_custom_name_user_cashbox_button(),
+                    ProfileKeyboard.get_set_note_user_cashbox_button()
+                ],
+                [
+                    ProfileKeyboard.get_back_to_cashbox_by_provider_menu_button()
+                ]
+            ]
+        )
+
+    @staticmethod
+    def get_set_done_new_user_cashbox_keyboard(flag):
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    ProfileKeyboard.get_set_balance_user_cashbox_button(),
+                    ProfileKeyboard.get_set_is_auto_update_user_cashbox_button(flag)
+                ],
+                [
+                    ProfileKeyboard.get_set_custom_name_user_cashbox_button(),
+                    ProfileKeyboard.get_set_note_user_cashbox_button()
+                ],
+                [
+                    ProfileKeyboard.get_make_new_user_cashbox_button()
+                ],
+                [
+                    ProfileKeyboard.get_back_to_cashbox_by_provider_menu_button()
+                ]
+            ]
+        )
 
     @staticmethod
     def get_me_change_keyboard():
