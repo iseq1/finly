@@ -1,5 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from app.bot.keyboards.profile import ProfileKeyboard
+from app.bot.keyboards.transaction import TransactionKeyboard
 
 
 class MainMenuKeyboard:
@@ -27,16 +28,10 @@ class MainMenuKeyboard:
         return InlineKeyboardMarkup(
             inline_keyboard=[
                 [
-                    ProfileKeyboard().get_profile_menu_button(),
-                    InlineKeyboardButton(text='Транзакции', callback_data='transactions'),
+                    ProfileKeyboard().get_profile_menu_button()
                 ],
                 [
-                    # ProfileKeyboard.get_profile_menu_button(),
-                    InlineKeyboardButton(text='Транзакции', callback_data='transactions'),
-                ],
-                [
-                    # ProfileKeyboard.get_profile_menu_button(),
-                    InlineKeyboardButton(text='Транзакции', callback_data='transactions'),
+                    TransactionKeyboard().get_transaction_menu_button()
                 ]
             ]
         )
