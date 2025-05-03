@@ -3,7 +3,9 @@ from app.bot.handlers.menu.profile.steps import NotifyUpdateSuccessHandler, Make
     GetUserCashboxesHandler, GetUserBudgetHandler, GetUserTransactionsHandler, GenerateProfileMessageHandler, \
     GetUserCashboxInfo, CheckUserCashboxesHandler, ShowUserCashbox, GetProviderInfoHandler, \
     CheckCashboxProvidersHandler, ShowCashboxProvidersHandler, TakingProviderInfoHandler, GetCashboxesByProvider, \
-    CheckCashboxesByProviderHandler, ShowCashboxesByProviderHandler
+    CheckCashboxesByProviderHandler, ShowCashboxesByProviderHandler, TakingBalanceUserCashboxHandler, \
+    TakingNewUserCashboxInfoHandler, TakingCustomNameUserCashboxHandler, TakingNoteUserCashboxHandler, \
+    GenerateNewUserCashboxDataHandler, PostNewUserCashboxHandler, NotifyNewUserCashboxHandler
 
 
 class ProfileMenuChain:
@@ -78,3 +80,56 @@ class ProfileMenuChain:
                 )
             )
         )
+
+    @staticmethod
+    def get_balance_new_user_cashbox_chain():
+        return TakingBalanceUserCashboxHandler(
+            TakingNewUserCashboxInfoHandler()
+        )
+
+
+    @staticmethod
+    def get_custom_name_new_user_cashbox_chain():
+        return TakingCustomNameUserCashboxHandler(
+            TakingNewUserCashboxInfoHandler()
+        )
+
+    @staticmethod
+    def get_note_new_user_cashbox_chain():
+        return TakingNoteUserCashboxHandler(
+            TakingNewUserCashboxInfoHandler()
+        )
+
+    @staticmethod
+    def get_post_new_user_cashbox_chain():
+        return GenerateNewUserCashboxDataHandler(
+            PostNewUserCashboxHandler(
+                NotifyNewUserCashboxHandler(
+
+                )
+            )
+        )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
