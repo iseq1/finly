@@ -1,4 +1,4 @@
-from app.bot.handlers.menu.steps import SendMainMenuMessageHandler, SendProfileHandler
+from app.bot.handlers.menu.steps import SendMainMenuMessageHandler, SendProfileHandler, SendTransactionHandler
 
 
 class MainMenuChain:
@@ -10,3 +10,7 @@ class MainMenuChain:
     @staticmethod
     def get_profile_chain():
         return SendProfileHandler()
+
+    @staticmethod
+    def get_transaction_chain():
+        return SendTransactionHandler()
