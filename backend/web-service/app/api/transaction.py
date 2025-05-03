@@ -44,18 +44,57 @@ class IncomeList(Resource):
     """Управление доходами"""
 
     @jwt_required()
-    @api.doc(security='jwt')
+    @api.doc(security='jwt',
+             params={
+                 'limit': 'Количество последних записей (опционально)',
+                 'start_date': "Дата начала периода (YYYY-MM-DD)",
+                 'end_date': "Дата конца периода (YYYY-MM-DD)",
+             }
+             )
     def get(self):
         """Получение списка всех доходов пользователя"""
         user_id = get_jwt_identity()
-        # TODO: make data-range for transactions
+
         # Получаем все user_cashbox пользователя
         from app.models.auth import UserCashbox
         user_cashboxes = UserCashbox.query.filter_by(user_id=user_id, deleted=False).all()
         user_cashbox_ids = [cashbox.id for cashbox in user_cashboxes]
 
-        # Получаем все доходы пользователя (по полученным user_cashbox_ids и полю deleted)
-        incomes = Income.query.filter(Income.user_cashbox_id.in_(user_cashbox_ids), Income.deleted == False).all()
+        from datetime import datetime, timedelta
+        def_start_date = datetime.utcnow().replace(day=1).strftime('%Y-%m-%d')
+        def_end_date = ((datetime.utcnow().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(
+            seconds=1)).strftime('%Y-%m-%d')
+
+        # Получаем параметры из запроса
+        limit = request.args.get('limit', type=int)
+        start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
+        end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'  # Конец диапазона временного интервала
+
+        # Валидация данных
+        from app.schemas.base import DateRangeSchema
+        DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
+
+        # Базовый запрос
+        query = Income.query.filter(
+            Income.user_cashbox_id.in_(user_cashbox_ids),
+            Income.deleted == False
+        )
+
+        # Фильтрация по дате, если передана
+        if start_date:
+            query = query.filter(Income.transacted_at >= start_date)
+
+        if end_date:
+            query = query.filter(Income.transacted_at <= end_date)
+
+        # Сортировка по дате (последние сверху)
+        query = query.order_by(Income.transacted_at.desc())
+
+        # Ограничение по количеству записей
+        if limit:
+            query = query.limit(limit)
+
+        incomes = query.all()
         return IncomeSchema(many=True).dump(incomes)
 
     @jwt_required()
@@ -215,8 +254,43 @@ class ExpenseList(Resource):
         user_cashboxes = UserCashbox.query.filter_by(user_id=user_id, deleted=False).all()
         user_cashbox_ids = [cashbox.id for cashbox in user_cashboxes]
 
-        # Получаем все расходы пользователя (по полученным user_cashbox_ids и полю deleted)
-        expenses = Expense.query.filter(Expense.user_cashbox_id.in_(user_cashbox_ids), Expense.deleted == False).all()
+        from datetime import datetime, timedelta
+        def_start_date = datetime.utcnow().replace(day=1).strftime('%Y-%m-%d')
+        def_end_date = ((datetime.utcnow().replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(
+            seconds=1)).strftime('%Y-%m-%d')
+
+        # Получаем параметры из запроса
+        limit = request.args.get('limit', type=int)
+        start_date = request.args.get('start_date',
+                                      default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
+        end_date = request.args.get('end_date',
+                                    default=def_end_date) + 'T23:59:59.999Z'  # Конец диапазона временного интервала
+
+        # Валидация данных
+        from app.schemas.base import DateRangeSchema
+        DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
+
+        # Базовый запрос
+        query = Expense.query.filter(
+            Expense.user_cashbox_id.in_(user_cashbox_ids),
+            Expense.deleted == False
+        )
+
+        # Фильтрация по дате, если передана
+        if start_date:
+            query = query.filter(Expense.transacted_at >= start_date)
+
+        if end_date:
+            query = query.filter(Expense.transacted_at <= end_date)
+
+        # Сортировка по дате (последние сверху)
+        query = query.order_by(Expense.transacted_at.desc())
+
+        # Ограничение по количеству записей
+        if limit:
+            query = query.limit(limit)
+
+        expenses = query.all()
         return ExpenseSchema(many=True).dump(expenses)
 
     @jwt_required()
