@@ -1,11 +1,12 @@
+import datetime
+import aiogram.types
 from aiogram.fsm.context import FSMContext
 from app.bot.handlers.base import BaseHandler
 from app.bot.keyboards.profile import ProfileKeyboard
-from app.bot.states import EditProfileState
+from app.bot.states import EditProfileState, CreateNewUserCashbox
 from app.utils.request import RequestManager
 from app.exceptions.profile_exceptions import ProfileError, ProfileInfoUnavailable
-from app.exceptions.request_exceptions import (
-    TokenStorageError, RequestError, )
+from app.exceptions.request_exceptions import TokenStorageError, RequestError
 from app.utils.logger import logger
 
 
@@ -231,7 +232,6 @@ class TakingNewFieldHandler(BaseHandler):
         logger.debug(f"[{self.__class__.__name__}] Получение данных для обновления информации авторизированного пользователя {event.from_user.id}")
         try:
             from app.utils.profile import ValidateUserInput
-            # TODO: validate per type
             field = event.text.strip()
 
             data = await state.get_data()
@@ -679,7 +679,11 @@ class TakingNewUserCashboxInfoHandler(BaseHandler):
             cashboxes_by_provider = data.get('cashboxes_by_provider')
             index = data.get("cashbox_by_provider_index", 0)
             cashbox = cashboxes_by_provider[index]
-        #   TODO  Добавить возможность указания кастомного имени и записки
+            new_user_cashbox = data.get('new_user_cashbox')
+            if isinstance(event, aiogram.types.Message):
+                await event.answer(self._format_cashbox(cashbox, new_user_cashbox), reply_markup=ProfileKeyboard().get_set_new_user_cashbox_keyboard(new_user_cashbox.get('is_auto_update', False)) if len(new_user_cashbox.items()) < 4 else ProfileKeyboard().get_set_done_new_user_cashbox_keyboard(new_user_cashbox.get('is_auto_update', False)), parse_mode='MarkdownV2')
+                return True
+            await event.message.edit_text(self._format_cashbox(cashbox, new_user_cashbox), reply_markup=ProfileKeyboard().get_set_new_user_cashbox_keyboard(new_user_cashbox.get('is_auto_update', False)) if len(new_user_cashbox.items()) < 4 else ProfileKeyboard().get_set_done_new_user_cashbox_keyboard(new_user_cashbox.get('is_auto_update', False)), parse_mode='MarkdownV2')
         except Exception as e:
             logger.exception(
                 f"[{self.__class__.__name__}] Неизвестная ошибка при получении информации о новом пользовательском кэш-боксе: {e}")
@@ -687,9 +691,273 @@ class TakingNewUserCashboxInfoHandler(BaseHandler):
             return False
 
 
+    def _format_cashbox(self, cashbox: dict, new_user_cashbox: dict) -> str:
+        provider = cashbox.get("provider", {})
+        cashbox_type = cashbox.get("type", {})
+
+        def esc(text):
+            """Экранирование спецсимволов MarkdownV2"""
+            if not isinstance(text, str):
+                text = str(text)
+            return (
+                text.replace('\\', '\\\\')
+                .replace('.', '\\.')
+                .replace('-', '\\-')
+                .replace('(', '\\(')
+                .replace(')', '\\)')
+                .replace('[', '\\[')
+                .replace(']', '\\]')
+                .replace('{', '\\{')
+                .replace('}', '\\}')
+                .replace('!', '\\!')
+                .replace('=', '\\=')
+                .replace('+', '\\+')
+                .replace('*', '\\*')
+                .replace('_', '\\_')
+                .replace('`', '\\`')
+                .replace('>', '\\>')
+                .replace('#', '\\#')
+                .replace('|', '\\|')
+                .replace('~', '\\~')
+            )
+
+        return (
+            f"Вы выбрали *{esc(cashbox.get('name', '—'))}* от *{esc(provider.get('name', '—'))}*\n\n"
+            f"✏️ *Описание:* {esc(cashbox.get('description', '—'))}\n"
+            f"📦 *Тип:* {esc(cashbox_type.get('name', '—'))}\n"
+            f"💰 *Валюта:* {esc(cashbox.get('currency', '—'))}\n\n"
+            f"{esc('Теперь вы можете персонализировать данный кэш-бокс для дальнейшего использования при учете личных финансов!')}\n"
+            f"Персонализация:\n\n"
+            f"*Баланс*: {esc(new_user_cashbox.get('balance', '—'))}\n"
+            f"*Кастомное имя*: {esc(new_user_cashbox.get('custom_name', '—'))}\n"
+            f"*Примечание*: {esc(new_user_cashbox.get('note', '—'))}\n"
+            f"*Автоматическое обновление*: {esc(new_user_cashbox.get('is_auto_update', '—'))}\n"
+
+        )
+
+class WaitBalanceUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение баланса нового пользовательского кэш-бокса авторизированного пользователя {event.from_user.id}")
+        try:
+            await state.set_state(CreateNewUserCashbox.waiting_for_balance)
+            data = await state.get_data()
+            cashboxes_by_provider = data.get('cashboxes_by_provider')
+            index = data.get("cashbox_by_provider_index", 0)
+            cashbox = cashboxes_by_provider[index]
+            await event.message.edit_text(text=f'Введите актуальный баланс кэш-бокса.\nБудьте внимательны, что валюта кэш-бокса подразумевает сумму в {cashbox.get("currency")}')
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов по провайдеру: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class WaitCustomNameUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение кастомного имени нового пользовательского кэш-бокса авторизированного пользователя {event.from_user.id}")
+        try:
+            await state.set_state(CreateNewUserCashbox.waiting_for_custom_name)
+            await event.message.edit_text(text=f'Введите кастомное имя для кэш-бокса.')
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов по провайдеру: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+class WaiNoteUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение заметки нового пользовательского кэш-бокса авторизированного пользователя {event.from_user.id}")
+        try:
+            await state.set_state(CreateNewUserCashbox.waiting_for_note)
+            await event.message.edit_text(text=f'Введите заметку для кэш-бокса.')
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов по провайдеру: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class TakingNoteUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение заметки нового пользовательского кэш-бокса авторизированного пользователя {event.from_user.id}")
+        try:
+            from app.utils.profile import ValidateUserInput
+            field = event.text.strip()
+            field_to_edit = 'note'
+            success, ref = ValidateUserInput().validate_field(type=field_to_edit, field=field)
+            if not success:
+                logger.error(f"[{self.__class__.__name__}] Ошибка пользовательского ввода")
+                raise ref
+            data = await state.get_data()
+            new_user_cashbox = data.get('new_user_cashbox')
+            new_user_cashbox['note'] = ref
+            await state.update_data(new_user_cashbox=new_user_cashbox)
+            return await super().handle(event, state, context)
+        except ValueError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка пользовательского ввода")
+            await event.answer(f'{e}\n\nПопробуйте ещё раз!')
+            return False
+        except Exception as e:
+            logger.exception(
+                f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов по провайдеру: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class TakingCustomNameUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение кастомного имени нового пользовательского кэш-бокса авторизированного пользователя {event.from_user.id}")
+        try:
+            from app.utils.profile import ValidateUserInput
+            field = event.text.strip()
+            field_to_edit = 'custom_name'
+            success, ref = ValidateUserInput().validate_field(type=field_to_edit, field=field)
+            if not success:
+                logger.error(f"[{self.__class__.__name__}] Ошибка пользовательского ввода")
+                raise ref
+            data = await state.get_data()
+            new_user_cashbox = data.get('new_user_cashbox')
+            new_user_cashbox['custom_name'] = ref
+            await state.update_data(new_user_cashbox=new_user_cashbox)
+            return await super().handle(event, state, context)
+        except ValueError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка пользовательского ввода")
+            await event.answer(f'{e}\n\nПопробуйте ещё раз!')
+            return False
+        except Exception as e:
+            logger.exception(
+                f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов по провайдеру: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class TakingBalanceUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение баланса нового пользовательского кэш-бокса авторизированного пользователя {event.from_user.id}")
+        try:
+            from app.utils.profile import ValidateUserInput
+            field = event.text.strip()
+
+            field_to_edit = 'balance'
+            success, ref = ValidateUserInput().validate_field(type=field_to_edit, field=field)
+
+            if not success:
+                logger.error(f"[{self.__class__.__name__}] Ошибка пользовательского ввода")
+                raise ref
+
+            data = await state.get_data()
+            new_user_cashbox = data.get('new_user_cashbox')
+            new_user_cashbox['balance'] = ref
+            await state.update_data(new_user_cashbox=new_user_cashbox)
+            return await super().handle(event, state, context)
+
+
+        except ValueError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка пользовательского ввода")
+            await event.answer(f'{e}\n\nПопробуйте ещё раз!')
+            return False
+        except Exception as e:
+            logger.exception(
+                f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов по провайдеру: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class GenerateNewUserCashboxDataHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Формирование json для нового пользовательского кэш-бокса авторизированного пользователя {event.from_user.id}")
+        try:
+            data = await state.get_data()
+            new_user_cashbox = data.get('new_user_cashbox')
+            cashboxes_by_provider = data.get('cashboxes_by_provider')
+            index = data.get("cashbox_by_provider_index", 0)
+            cashbox = cashboxes_by_provider[index]
+
+            post_data = {
+              "user_id": data.get('user_id'),
+              "cashbox_id": cashbox['id'],
+              "balance": new_user_cashbox['balance'],
+              "is_auto_update": new_user_cashbox['is_auto_update'],
+              "last_synced_at": datetime.datetime.now().isoformat(),
+              "custom_name": new_user_cashbox['custom_name'],
+              "note": new_user_cashbox['note']
+            }
+
+            if context is None:
+                context = {}
+            context['post_data'] = post_data
+
+            return await super().handle(event, state, context)
+        except Exception as e:
+            logger.exception(
+                f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов по провайдеру: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
 class PostNewUserCashboxHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
-        logger.debug(f"[{self.__class__.__name__}] Создание нового пользовательского кэш-бокса авторизированного пользователя {event.from_user.id}")
-        # try:
-        #     pass
-        #
+        logger.debug(f"[{self.__class__.__name__}] Запрос на создание пользовательского кэш-бокса для авторизированного пользователя {event.from_user.id}")
+        try:
+            request_manager = RequestManager()
+            data = await request_manager.make_request(method='POST', url='auth/me/cashboxes', state=state, json=context['post_data'])
+            return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+class NotifyNewUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Запрос на создание пользовательского кэш-бокса для авторизированного пользователя {event.from_user.id}")
+        try:
+            await event.message.edit_text(text='Вы успешно создали новый пользовательский кэш-бокс!\n\nТеперь его можно использовать для учета движения ваших средств.', reply_markup=ProfileKeyboard.get_back_profile_menu_keyboard())
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
