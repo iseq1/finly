@@ -11,6 +11,21 @@ class RequestManager:
     def __init__(self):
         self.base_url = API_BASE_URL
 
+    async def fetch_and_attach_entity_info(self, budgets, field_name, api_path_template, state):
+        ids_to_fetch = list({budget[field_name] for budget in budgets if budget.get(field_name, 0) != 0})
+        if not ids_to_fetch:
+            return
+
+        entity_list = await self.make_request(
+            method='POST',
+            url=api_path_template,
+            state=state,
+            json={'ids': ids_to_fetch},
+        )
+
+        return entity_list
+
+
     async def make_request(self, method, url, state, **kwargs):
         logger.debug(f"[{self.__class__.__name__}] [MakeRequest] Попытка создания запроса {method} к серверу от пользователя: {(await state.get_data()).get('user_id')}")
         try:
@@ -47,7 +62,6 @@ class RequestManager:
         }
         exception_cls = errors_by_code.get(status, RequestUnexpectedError)
         raise exception_cls() if status in errors_by_code else exception_cls(status)
-
 
     @staticmethod
     async def make_authenticated_request(session, method, url, access_token, refresh_token, refresh_url, **kwargs):
