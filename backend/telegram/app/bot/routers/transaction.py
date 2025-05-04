@@ -60,7 +60,8 @@ async def new_transaction_menu(callback: CallbackQuery, state: FSMContext):
         chain = TransactionMenuChain().get_watch_history_transaction_chain()
         await chain.handle(callback, state)
     elif transaction_action['action'] == 'statistic':
-        pass
+        chain = TransactionMenuChain().get_watch_statistic_transaction_chain()
+        await chain.handle(callback, state)
     else:
         pass
 
