@@ -19,3 +19,8 @@ async def handle_link_telegram(callback: CallbackQuery, state: FSMContext):
 async def handle_link_telegram(callback: CallbackQuery, state: FSMContext):
     chain = MainMenuChain().get_transaction_chain()
     await chain.handle(callback, state)
+
+@router.callback_query(F.data == "budget_menu")
+async def handle_link_telegram(callback: CallbackQuery, state: FSMContext):
+    chain = MainMenuChain().get_budget_chain()
+    await chain.handle(callback, state)
