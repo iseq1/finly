@@ -340,7 +340,13 @@ class BudgetDetails(Resource):
         else:
             end_date = datetime(budget.year, budget.month + 1, 1) - timedelta(seconds=1)
 
-        incomes = Income.query.filter_by(user_id=user_id, category_id=budget.category_id).filter(Income.transacted_at >= start_date, Income.transacted_at <= end_date)
+        from app.models.auth import UserCashbox
+        incomes = Income.query.join(Income.user_cashbox).filter(
+            UserCashbox.user_id == user_id,
+            Income.category_id == budget.category_id,
+            Income.transacted_at >= start_date,
+            Income.transacted_at <= end_date
+        )
 
         if budget.subcategory_id:
             incomes = incomes.filter(Income.subcategory_id == budget.subcategory_id)
