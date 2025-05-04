@@ -163,6 +163,20 @@ class CategoryDetail(Resource):
         category.soft_delete()
         return {'message': f'Категория c ID = {category.id} успешно удалена'}
 
+@api.route('/categories/set')
+class CategoryDetailSet(Resource):
+    """Управление списком конкретных категорий"""
+
+    @jwt_required()
+    @api.doc(security='jwt', body=api.model('IDList', {
+        'ids': fields.List(fields.Integer, required=True, description='Список ID необходимых категорий')
+    }))
+    def post(self):
+        """Получение списка категорий по ID"""
+        ids = request.json.get("ids", [])
+        categories = Category.query.filter(Category.id.in_(ids)).all()
+        return CategorySchema(many=True).dump(categories)
+
 
 # Подкатегории
 @api.route('/subcategories')
@@ -293,3 +307,17 @@ class SubcategoryDetail(Resource):
 
         subcategory.soft_delete()
         return {'message': f'Подкатегория c ID = {subcategory.id} успешно удалена'}
+
+@api.route('/subcategories/set')
+class SubcategoryDetailSet(Resource):
+    """Управление списком конкретных подкатегорий"""
+
+    @jwt_required()
+    @api.doc(security='jwt', body=api.model('IDList', {
+        'ids': fields.List(fields.Integer, required=True, description='Список ID необходимых подкатегорий')
+    }))
+    def post(self):
+        """Получение списка подкатегорий по ID"""
+        ids = request.json.get("ids", [])
+        subcategories = Subcategory.query.filter(Subcategory.id.in_(ids)).all()
+        return SubcategorySchema(many=True).dump(subcategories)
