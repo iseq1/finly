@@ -1,7 +1,7 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
-from app.bot.routers import start, auth_login, auth_register, auth_link, main_menu, profile, transaction
+from app.bot.routers import start, auth_login, auth_register, auth_link, main_menu, profile, transaction, budget
 import os
 from dotenv import load_dotenv
 
@@ -24,5 +24,6 @@ async def main():
     dp.include_router(main_menu.router)
     dp.include_router(profile.router)
     dp.include_router(transaction.router)
+    dp.include_router(budget.router)
 
     await dp.start_polling(bot)
