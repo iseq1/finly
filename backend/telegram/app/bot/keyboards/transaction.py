@@ -308,6 +308,23 @@ class TransactionKeyboard:
             ]
         )
 
+    @staticmethod
+    def get_more_statistic_info_button():
+        return InlineKeyboardButton(text='Подробнее', callback_data='get_more_statistic_information')
+
+    @staticmethod
+    def get_statistic_menu_keyboard():
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    TransactionKeyboard.get_more_statistic_info_button()
+                ],
+                [
+                    TransactionKeyboard.get_back_transaction_menu_button()
+                ]
+            ]
+        )
+
 
 
 
