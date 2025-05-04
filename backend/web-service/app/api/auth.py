@@ -843,6 +843,23 @@ class UserCashboxDetail(Resource):
         user_cashbox.soft_delete()
         return {'message': f'Пользовательский кэш-бокс с ID = {id} успешно удален'}
 
+
+@api.route('/me/cashboxes/set')
+class SubcategoryDetailSet(Resource):
+    """Управление списком конкретных пользовательских кэш-боксов"""
+
+    @jwt_required()
+    @api.doc(security='jwt', body=api.model('IDList', {
+        'ids': fields.List(fields.Integer, required=True, description='Список ID необходимых пользовательских кэш-боксов')
+    }))
+    def post(self):
+        """Получение списка пользовательских кэш-боксов по ID"""
+        ids = request.json.get("ids", [])
+        user_cashboxes = UserCashbox.query.filter(UserCashbox.id.in_(ids)).all()
+        return UserCashboxSchema(many=True).dump(user_cashboxes)
+
+
+
 # Модуль для связи между пользователем и телеграмм
 telegram_model = api.model("UserTelegram", {
     "telegram_id": fields.Integer(required=True, description="Telegram ID"),
