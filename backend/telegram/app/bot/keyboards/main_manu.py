@@ -1,4 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+from app.bot.keyboards.budget import BudgetKeyboard
 from app.bot.keyboards.profile import ProfileKeyboard
 from app.bot.keyboards.transaction import TransactionKeyboard
 
@@ -32,6 +34,9 @@ class MainMenuKeyboard:
                 ],
                 [
                     TransactionKeyboard().get_transaction_menu_button()
+                ],
+                [
+                    BudgetKeyboard().get_budget_menu_button()
                 ]
             ]
         )
