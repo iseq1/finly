@@ -1,5 +1,6 @@
 from aiogram.fsm.context import FSMContext
 from app.bot.handlers.base import BaseHandler
+from app.bot.keyboards.budget import BudgetKeyboard
 from app.bot.keyboards.main_manu import MainMenuKeyboard
 from app.bot.keyboards.profile import ProfileKeyboard
 from app.bot.keyboards.transaction import TransactionKeyboard
@@ -36,5 +37,16 @@ class SendTransactionHandler(BaseHandler):
         await event.message.edit_text(
             text='Меню транзакций:',
             reply_markup=TransactionKeyboard.get_transaction_menu_keyboard()
+        )
+        return await super().handle(event, state, context)
+
+
+class SendBudgetHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Отправка сообщения с меню бюджета авторизированному пользователю {event.from_user.id}")
+
+        await event.message.edit_text(
+            text='Меню бюджета:',
+            reply_markup=BudgetKeyboard.get_budget_menu_keyboard()
         )
         return await super().handle(event, state, context)
