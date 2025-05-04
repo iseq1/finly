@@ -741,3 +741,70 @@ class ShowUserLatestTransactionInfoHandler(BaseHandler):
                 f"|----------|----------|----------|\n"
             )
         return "\n".join(lines)
+
+class GetUserTransactionStatisticHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Получение статистики авторизированного пользователя {event.from_user.id}")
+        try:
+            data = await state.get_data()
+            request_manager = RequestManager()
+            data = await request_manager.make_request(method='GET', url=f'transactions/statistics?type={data.get("transaction_action").get("type")}&include_empty_categories=False', state=state)
+            if context is None:
+                context = {}
+            context['statistic'] = data
+            return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+class CheckUserTransactionStatisticHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Проверка наличия статистики авторизированного пользователя {event.from_user.id}")
+        try:
+            if len(context['statistic']) == 0:
+                event.message.edit_text(text='Кажется, у вас пока ещё нет ни одной записанной транзакции за этот месяц. Самое время записать их!', reply_markup=TransactionKeyboard.def_get_history_menu_keyboard())
+            else:
+                return await super().handle(event, state, context)
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+class ShowUserTransactionStatisticHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Демонстрация статистики транзакций авторизированного пользователя {event.from_user.id}")
+        try:
+            await event.message.edit_text(f"{(self._format_stat(context['statistic']))}", parse_mode="HTML", reply_markup=TransactionKeyboard.get_statistic_menu_keyboard())
+            return True
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+    def _format_stat(self, transactions: dict) -> str:
+        lines = ["📊 <b>Статистика транзакций</b>\n"]
+
+        for category, providers in transactions['statistics'].items():
+            lines.append(f"📂 <b>{category}</b>: {transactions['category_totals'][category]}₽")
+            for provider, amount in providers.items():
+                if amount > 0:
+                    lines.append(f"    └ 🏦 {provider}: {amount}₽")
+            lines.append("")  # пустая строка между категориями
+
+        lines.append("<b>💼 Итоги по провайдерам:</b>")
+        for provider, amount in transactions['provider_totals'].items():
+            lines.append(f"🏦 {provider}: {amount}₽")
+
+        return "\n".join(lines)
