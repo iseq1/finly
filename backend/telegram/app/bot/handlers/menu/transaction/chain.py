@@ -4,7 +4,8 @@ from app.bot.handlers.menu.transaction.steps import GetSelectTransactionTypeHand
     CheckSubcategoryHandler, ShowSubcategoriesHandler, RememberSubcategoryHandler, TakingTransactionInfoHandler, \
     WaitTransactionFieldHandler, TakingTransactionFieldHandler, CheckTransactionInfoHandler, MakeTransactionDataHandler, \
     SaveNewTransactionHandler, NotifySuccessesTransactionHandler, GetUserLatestTransactionInfoHandler, \
-    ShowUserLatestTransactionInfoHandler, CheckUserLatestTransactionsInfoHandler
+    ShowUserLatestTransactionInfoHandler, CheckUserLatestTransactionsInfoHandler, GetUserTransactionStatisticHandler, \
+    CheckUserTransactionStatisticHandler, ShowUserTransactionStatisticHandler
 
 
 class TransactionMenuChain:
@@ -36,6 +37,16 @@ class TransactionMenuChain:
         return GetUserLatestTransactionInfoHandler(
             CheckUserLatestTransactionsInfoHandler(
                 ShowUserLatestTransactionInfoHandler()
+            )
+        )
+
+    @staticmethod
+    def get_watch_statistic_transaction_chain():
+        return GetUserTransactionStatisticHandler(
+            CheckUserTransactionStatisticHandler(
+                ShowUserTransactionStatisticHandler(
+
+                )
             )
         )
 
