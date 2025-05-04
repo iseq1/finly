@@ -82,7 +82,6 @@ class BudgetSchema(BaseSchema):
 
     # Связи
     user = fields.Nested('UserBaseSchema', only=('username', 'first_name', 'last_name'), dump_only=True)
-
     @validates("month")
     def validate_month(self, value):
         """Проверка корректности месяца"""
