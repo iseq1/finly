@@ -1,6 +1,7 @@
 from app.bot.handlers.menu.budget.steps import GetUserBudgetInfoHandler, CheckUserBudgetsInfoHandler, \
     GetCategoryInfoForBudgetsHandler, GetSubcategoryInfoForBudgetsHandler, GetUserCashboxInfoForBudgetsHandler, \
-    CheckUserBudgetsAdditionalInfoHandler, ShowUserBudgetsHandler
+    CheckUserBudgetsAdditionalInfoHandler, ShowUserBudgetsHandler, CheckChosenBudgetHandler, GetDetailBudgetInfoHandler, \
+    ShowDetailBudgetInfoHandler
 
 
 class BudgetMenuChain:
@@ -21,7 +22,13 @@ class BudgetMenuChain:
                         GetUserCashboxInfoForBudgetsHandler(
                             CheckUserBudgetsAdditionalInfoHandler(
                                 ShowUserBudgetsHandler(
+                                    CheckChosenBudgetHandler(
+                                        GetDetailBudgetInfoHandler(
+                                            ShowDetailBudgetInfoHandler(
 
+                                            )
+                                        )
+                                    )
                                 )
                             )
                         )
