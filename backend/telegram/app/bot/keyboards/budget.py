@@ -79,7 +79,7 @@ class BudgetKeyboard:
 
     @staticmethod
     def get_next_user_budget_button():
-        return InlineKeyboardButton(text='Следующий ▶️', callback_data="user_budget_ext")
+        return InlineKeyboardButton(text='Следующий ▶️', callback_data="user_budget_next")
 
     @staticmethod
     def get_user_budgets_menu_keyboard():
