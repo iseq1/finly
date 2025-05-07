@@ -27,3 +27,6 @@ class TransactionState(StatesGroup):
     waiting_for_vendor = State()
     waiting_for_location = State()
     waiting_for_source = State()
+
+class BudgetState(StatesGroup):
+    choosing_budget_item = State()
