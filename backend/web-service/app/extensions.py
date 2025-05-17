@@ -25,7 +25,7 @@ def init_extensions(app):
     # Инициализация CORS с поддержкой localhost:7018
     CORS(app, resources={
         r"/*": {
-            "origins": ["http://localhost:7018", "http://localhost:7020", "https://amanat-erp.economic-crisis.com", "https://amanaterp.ru", "https://api.amanaterp.ru"],
+            "origins": ["http://localhost:7018", "http://localhost:7020", "https://finly.ru"],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "expose_headers": ["Content-Type", "Authorization"],
