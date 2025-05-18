@@ -1,12 +1,16 @@
 document.addEventListener('DOMContentLoaded', function() {
     const emailInput = document.getElementById('email');
     const passwordInput = document.getElementById('password');
+    const confirmedPasswordInput = document.getElementById('confirmed_password');
     const emailError = document.getElementById('email-error');
     const passwordError = document.getElementById('password-error');
+    const confirmedPasswordError = document.getElementById('confirmed_password-error');
 
     // Скрываем сообщения об ошибках при загрузке страницы
     emailError.style.display = 'none';
     passwordError.style.display = 'none';
+    confirmedPasswordError.style.display = 'none';
+
 
     // Функция для проверки формы
     function validateForm() {
@@ -64,15 +68,31 @@ document.addEventListener('DOMContentLoaded', function() {
             passwordError.style.display = 'none'; // Скрываем, если ошибок нет
         }
 
+        // Проверка совпадения паролей
+        const confirmedPasswordValue = confirmedPasswordInput.value.trim();
+        confirmedPasswordError.style.display = 'none';
+
+        if (!confirmedPasswordValue) {
+            confirmedPasswordError.textContent = '· Повторите пароль.';
+            confirmedPasswordError.style.display = 'block';
+            isValid = false;
+        } else if (passwordValue && confirmedPasswordValue !== passwordValue) {
+            confirmedPasswordError.textContent = '· Пароли не совпадают.';
+            confirmedPasswordError.style.display = 'block';
+            isValid = false;
+        }
+
         return isValid; // Возвращаем результат проверки
     }
 
     // Добавляем событие на ввод
     emailInput.addEventListener('input', validateForm);
     passwordInput.addEventListener('input', validateForm);
+    confirmedPasswordInput.addEventListener('input', validateForm);
+
 
     // Дополнительно, можно сделать валидацию при отправке формы
-    document.querySelector('form').addEventListener('submit', function(event) {
+    document.getElementById('register-form').addEventListener('submit', function(event) {
 
         if (!validateForm()) {
             event.preventDefault(); // Отменяем отправку формы если есть ошибки
