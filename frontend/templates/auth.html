@@ -63,7 +63,7 @@
 					</span>
 				</div>
 
-				<form method="POST">
+				<form id="login-form">
 					<input type="hidden" name="_token" value="2flGyz6HliDGCw4PYew6kHAQjAa563AZtBOVWPnz">
 					<div class="field-fyi">
 						<img class="input-icon" src="/static/img/register/email.gif" >
@@ -96,6 +96,7 @@
 						Регистрация
 					</a>
                 </p>
+				<p id="error-msg" style="color: red;"></p>
             </div>
         </div>
         <div class="login-page-reviews">
@@ -109,8 +110,9 @@
 	</div>
 </main>
 
-    <script src="/static/js/register/validate_user_input.js"></script>
-    <script src="/static/js/register/show_password.js"></script>
+    <script src="/static/js/auth/validate_user_input.js"></script>
+    <script src="/static/js/auth/show_password.js"></script>
+	<script src="/static/js/auth/auth.js"></script>
 </body>
 
 </html>
