@@ -76,6 +76,12 @@ user_cashbox_model = api.model('UserCashbox', {
 
 SECRET_TELEGRAM_AUTH_KEY = os.getenv('SECRET_TELEGRAM_AUTH_KEY')
 
+@api.route('/ping')
+class Ping(Resource):
+    @jwt_required()
+    def get(self):
+        return {'message': 'pong'}, 200
+
 
 @api.route('/register')
 class Register(Resource):
