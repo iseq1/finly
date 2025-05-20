@@ -1,0 +1,9 @@
+.icon.custom-gem {
+    display: inline-block;
+    width: 48px;
+    height: 48px;
+    background-image: url('/static/img/index/budgetwatch-svgrepo-com.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+  }
+  
