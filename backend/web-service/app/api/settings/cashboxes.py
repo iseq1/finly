@@ -6,9 +6,10 @@ from flask_restx import Resource, fields
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from app.models.settings.cashboxes import Cashbox, CashboxType, CashboxProvider
+from app.schemas.base import PaginationSchema
 from app.schemas.settings.cashboxes import CashboxSchema, CashboxTypeSchema, CashboxProviderSchema
 from app.utils.auth import permission_required
-from app.utils.helpers import serialize_value
+from app.utils.helpers import serialize_value, apply_pagination
 from app.extensions import db
 from app.api.settings import api
 
@@ -52,11 +53,19 @@ class CashboxList(Resource):
              params={
                  'provider_id': "ID-провайдера кэш-боксов",
                  'type_id': "ID-типа кэш-боксов",
+                 'page': 'Номер страницы',
+                 'per_page': 'Кол-во элементов на странице',
+                 'sort_by': 'Поле для сортировки',
+                 'sort_dir': 'Направление сортировки',
              })
     def get(self):
         """Получение списка всех кэш-боксов"""
         provider_id = request.args.get('provider_id')  # ID-провайдера
         type_id = request.args.get('type_id')  # ID-типа
+        page = request.args.get('page', default=1, type=int)
+        per_page = request.args.get('per_page', default=10, type=int)
+        sort_by = request.args.get('sort_by', 'name')
+        sort_dir = request.args.get('sort_dir', 'asc')
 
         cashboxes = Cashbox.query.filter_by(deleted=False)
 
@@ -65,8 +74,33 @@ class CashboxList(Resource):
         if type_id:
             cashboxes = cashboxes.filter(Cashbox.type_id == int(type_id))
 
-        cashboxes = cashboxes.all()
-        return CashboxSchema(many=True).dump(cashboxes)
+        # Сортировка
+        sortable_fields = {
+            'name': Cashbox.name,
+            'type': Cashbox.type_id,
+            'provider': Cashbox.provider_id,
+            'currency': Cashbox.currency
+        }
+
+        sort_column = sortable_fields.get(sort_by, Cashbox.name)
+        if sort_dir == 'desc':
+            cashboxes = cashboxes.order_by(sort_column.desc())
+        else:
+            cashboxes = cashboxes.order_by(sort_column.asc())
+
+        # Применяем пагинацию
+        pagination = apply_pagination(cashboxes, page, per_page)
+        cashboxes_data = CashboxSchema(many=True).dump(pagination.items)
+
+        return {
+            'items': cashboxes_data,
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
 
     @jwt_required()
     # @permission_required('settings.manage')
