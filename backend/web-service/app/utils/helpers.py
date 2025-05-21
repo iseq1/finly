@@ -4,6 +4,7 @@
 import os
 import uuid
 import secrets
+import re
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from flask import current_app
@@ -44,11 +45,11 @@ def save_file(file, subfolder=''):
     unique_filename = generate_unique_filename(filename)
     folder_path = os.path.join(current_app.config['UPLOAD_FOLDER'], subfolder)
     os.makedirs(folder_path, exist_ok=True)
-    
+
     file_path = os.path.join(folder_path, unique_filename)
     file.save(file_path)
     file_size = os.path.getsize(file_path)
-    
+
     return filename, os.path.join(subfolder, unique_filename), file_size
 
 def delete_file(file_path):
@@ -107,15 +108,15 @@ def apply_search(query, search_text, search_fields):
 
     model = query.column_descriptions[0]['entity']
     search_filters = []
-    
+
     for field in search_fields:
         if hasattr(model, field):
             column = getattr(model, field)
             search_filters.append(column.ilike(f'%{search_text}%'))
-    
+
     if search_filters:
         return query.filter(or_(*search_filters))
-    
+
     return query
 
 def format_datetime(dt):
@@ -136,19 +137,19 @@ def parse_datetime(date_str):
     """
     if not date_str:
         return None
-    
+
     formats = [
         '%Y-%m-%d %H:%M:%S',
         '%Y-%m-%d %H:%M',
         '%Y-%m-%d'
     ]
-    
+
     for fmt in formats:
         try:
             return datetime.strptime(date_str, fmt)
         except ValueError:
             continue
-    
+
     return None
 
 def calculate_date_range(period):
@@ -158,7 +159,7 @@ def calculate_date_range(period):
     :return: tuple(start_date, end_date)
     """
     now = datetime.now()
-    
+
     if period == 'today':
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -177,7 +178,7 @@ def calculate_date_range(period):
         end_date = now.replace(month=12, day=31, hour=23, minute=59, second=59, microsecond=999999)
     else:
         raise ValueError('Неподдерживаемый период')
-    
+
     return start_date, end_date
 
 def generate_access_token(length=32):
@@ -188,6 +189,48 @@ def generate_access_token(length=32):
     """
     return secrets.token_hex(length // 2)
 
+def generate_code_from_name(name):
+    """
+    Генерация кода из названия путем транслитерации
+    :param name: исходное название
+    :return: транслитерированный код с добавлением 4 уникальных hex символов
+    """
+    if not name:
+        return None
+
+    # Словарь транслитерации
+    translit_dict = {
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+        'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+        'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+        'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+        'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+        'А': 'a', 'Б': 'b', 'В': 'v', 'Г': 'g', 'Д': 'd', 'Е': 'e', 'Ё': 'e',
+        'Ж': 'zh', 'З': 'z', 'И': 'i', 'Й': 'y', 'К': 'k', 'Л': 'l', 'М': 'm',
+        'Н': 'n', 'О': 'o', 'П': 'p', 'Р': 'r', 'С': 's', 'Т': 't', 'У': 'u',
+        'Ф': 'f', 'Х': 'kh', 'Ц': 'ts', 'Ч': 'ch', 'Ш': 'sh', 'Щ': 'sch',
+        'Ъ': '', 'Ы': 'y', 'Ь': '', 'Э': 'e', 'Ю': 'yu', 'Я': 'ya',
+        ' ': '_', '-': '_'
+    }
+
+    # Транслитерация
+    result = ''
+    for char in name:
+        result += translit_dict.get(char, char)
+
+    # Удаление всех символов, кроме a-z, A-Z, 0-9 и _
+    result = re.sub(r'[^a-zA-Z0-9_]', '', result)
+
+    # Приведение к нижнему регистру
+    result = result.lower()
+
+    # Если результат пустой, возвращаем случайный код
+    if not result:
+        return f"code_{uuid.uuid4().hex[:8]}"
+
+    # Добавляем 4 уникальных hex символа для обеспечения уникальности
+    unique_suffix = uuid.uuid4().hex[:4]
+    return f"{result}_{unique_suffix}"
 
 def serialize_value(value):
     """
