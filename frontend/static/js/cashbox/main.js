@@ -36,7 +36,7 @@ import { logout } from '/static/js/security/token.js';
       <h3>${box.cashbox.name}</h3>
       <p>${box.custom_name || "Без кастомного наименования"}</p>
       <ul class="actions">
-        <li><a href="/cashbox/${box.id}" class="button">Подробнее</a></li>
+        <li><a href="/templates/cashbox/user-cashbox.html?id=${box.id}" class="button">Подробнее</a></li>
       </ul>
     `;
 
