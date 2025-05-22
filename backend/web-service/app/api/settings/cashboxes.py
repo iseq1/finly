@@ -112,7 +112,7 @@ class CashboxList(Resource):
             cashbox_data = CashboxSchema().load(request.json)
 
             # Проверка существования кэш-бокса
-            if Cashbox.query.filter_by(name=cashbox_data.name).first():
+            if Cashbox.query.filter_by(name=cashbox_data.name, deleted=False).first():
                 return {'message': 'Кэш-бокс с таким наименованием уже существует'}, 400
 
             db.session.add(cashbox_data)
