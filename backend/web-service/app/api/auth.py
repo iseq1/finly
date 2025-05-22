@@ -760,7 +760,7 @@ class UserCashboxList(Resource):
                 return {'message': 'Неверно указан ID-пользователя в запросе'}, 400
 
             # Проверка существования типа кэш-бокса
-            if UserCashbox.query.filter_by(user_id=user_id, cashbox_id=user_cashbox_data.cashbox_id).first():
+            if UserCashbox.query.filter_by(user_id=user_id, cashbox_id=user_cashbox_data.cashbox_id, deleted=False).first():
                 return {'message': 'Указанный пользовательский кэш-бокс уже существует у указанного пользователя'}, 400
 
 
