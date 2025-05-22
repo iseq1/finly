@@ -32,7 +32,7 @@ export async function loadTable(page = 1, sortBy = null, sortDir = 'asc', userCa
     const owned = userCashboxIds.has(item.id);
     const liBtn = owned
       ? `<li><a href="#" class="button small">Уже есть</a></li>`
-      : `<li><a href="#" class="button primary small" data-id="${item.id}">Создать</a></li>`;
+      : `<li><a href="#" class="button primary small create-btn" data-id="${item.id}">Создать</a></li>`;
 
     const tr = document.createElement("tr");
 
@@ -50,15 +50,26 @@ export async function loadTable(page = 1, sortBy = null, sortDir = 'asc', userCa
 
     tbody.appendChild(tr);
   }
-// навесить обработчики на кнопки Primary
-  document.querySelectorAll("a.button.primary").forEach(button => {
-    button.addEventListener("click", e => {
+
+  document.querySelectorAll('.create-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
-      const cashboxId = button.dataset.id;
-      window.location.href = `/user-cashbox/create?cashbox_id=${cashboxId}`;
+
+      sessionStorage.removeItem('editingCashbox');
+
+      const id = btn.dataset.id;
+      const item = items.find(i => i.id === parseInt(id));
+  
+      if (item) {
+        sessionStorage.setItem('creatingCashbox', JSON.stringify(item));
+        window.location.href = `/templates/cashbox/cashbox-form.html?cashbox_id=${id}`;
+      } else {
+        console.error('Не найден элемент с ID:', id);
+      }
     });
   });
-
+  
 
   renderPagination(pages, has_prev, has_next, loadTable, currentPage, currentSortBy, currentSortDir, userCashboxIds);
 }
+
