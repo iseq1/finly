@@ -46,6 +46,7 @@ class IncomeList(Resource):
     @jwt_required()
     @api.doc(security='jwt',
              params={
+                 'cashbox': 'ID кэш-бокса (опционально)',
                  'limit': 'Количество последних записей (опционально)',
                  'start_date': "Дата начала периода (YYYY-MM-DD)",
                  'end_date': "Дата конца периода (YYYY-MM-DD)",
@@ -67,6 +68,7 @@ class IncomeList(Resource):
 
         # Получаем параметры из запроса
         limit = request.args.get('limit', type=int)
+        cashbox_id = request.args.get('cashbox', type=int)
         start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
         end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'  # Конец диапазона временного интервала
 
@@ -89,6 +91,9 @@ class IncomeList(Resource):
 
         # Сортировка по дате (последние сверху)
         query = query.order_by(Income.transacted_at.desc())
+
+        if cashbox_id:
+            query = query.filter(Income.user_cashbox_id == cashbox_id)
 
         # Ограничение по количеству записей
         if limit:
@@ -244,7 +249,14 @@ class ExpenseList(Resource):
     """Управление расходами"""
 
     @jwt_required()
-    @api.doc(security='jwt')
+    @api.doc(security='jwt',
+             params={
+                 'cashbox': 'ID кэш-бокса (опционально)',
+                 'limit': 'Количество последних записей (опционально)',
+                 'start_date': "Дата начала периода (YYYY-MM-DD)",
+                 'end_date': "Дата конца периода (YYYY-MM-DD)",
+             }
+             )
     def get(self):
         """Получение списка всех расходов пользователя"""
         user_id = get_jwt_identity()
@@ -261,6 +273,7 @@ class ExpenseList(Resource):
 
         # Получаем параметры из запроса
         limit = request.args.get('limit', type=int)
+        cashbox_id = request.args.get('cashbox', type=int)
         start_date = request.args.get('start_date',
                                       default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
         end_date = request.args.get('end_date',
@@ -285,6 +298,9 @@ class ExpenseList(Resource):
 
         # Сортировка по дате (последние сверху)
         query = query.order_by(Expense.transacted_at.desc())
+
+        if cashbox_id:
+            query = query.filter(Expense.user_cashbox_id == cashbox_id)
 
         # Ограничение по количеству записей
         if limit:
