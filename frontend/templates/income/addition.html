@@ -12,7 +12,7 @@
 		<link rel="stylesheet" href="/static/css/base/main.css" />
         <!-- Подключение из CDN -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
-        <!--<script type="module" src="/static/js/cashbox/cashbox_form.js"></script>-->
+		<script type="module" src="/static/js/income/main_addition.js"></script>
 
 	</head>
 	<body class="is-preload">
@@ -47,46 +47,34 @@
 										<div class="col-6 col-12-medium">
                                             <h3>Информация о доходе</h3>
 
-                                            <form method="post" action="#" data-cashbox-id="" id="cashbox-form">
+                                            <form method="post" action="#" id="income-form">
                                                 <div class="row gtr-uniform">
                                                     <div class="col-12 col-12-xsmall">
-                                                        <select name="demo-category" id="demo-category">
+                                                        <select name="demo-category" id="user_cashbox">
                                                             <option value="">- Ваш кэш-бокс -</option>
-                                                            <option value="1">Manufacturing</option>
-                                                            <option value="1">Shipping</option>
-                                                            <option value="1">Administration</option>
-                                                            <option value="1">Human Resources</option>
                                                         </select>
                                                     </div>
                                                     <div class="col-6 col-12-xsmall">
-                                                        <select name="demo-category" id="demo-category">
+                                                        <select name="demo-category" id="category">
                                                             <option value="">- Категория -</option>
-                                                            <option value="1">Manufacturing</option>
-                                                            <option value="1">Shipping</option>
-                                                            <option value="1">Administration</option>
-                                                            <option value="1">Human Resources</option>
                                                         </select>
                                                     </div>
                                                     <div class="col-6 col-12-xsmall">
-                                                        <select name="demo-category" id="demo-category">
+                                                        <select name="demo-category" id="subcategory">
                                                             <option value="">- Подкатегория -</option>
-                                                            <option value="1">Manufacturing</option>
-                                                            <option value="1">Shipping</option>
-                                                            <option value="1">Administration</option>
-                                                            <option value="1">Human Resources</option>
                                                         </select>
                                                     </div>
                                                     <div class="col-6 col-12-xsmall">
-                                                        <input type="text" name="custom-name" id="custom-name" value="" placeholder="Сумма транзакции в ${ВАЛЮТА}" />
+                                                        <input type="text" name="amount" id="amount" value="" placeholder="Сумма транзакции" />
                                                     </div>
                                                     <div class="col-6 col-12-xsmall">
-                                                        <input type="text" name="note" id="note" value="" placeholder="Дата (тут плагин надо юзать)" />
+                                                        <input type="text" name="transacted_at" id="transacted_at" value="" placeholder="Дата" />
                                                     </div>
                                                     <div class="col-6 col-12-xsmall">
-                                                        <input type="text" name="balance" id="balance" value="" placeholder="Источник " />
+                                                        <input type="text" name="source" id="source" value="" placeholder="Источник " />
                                                     </div>
                                                     <div class="col-6 col-12-xsmall">
-                                                        <input type="text" name="currency" id="currency" value="" placeholder="Комментарий" />
+                                                        <input type="text" name="comment" id="comment" value="" placeholder="Комментарий" />
                                                     </div>                                              
                                                     <!-- Break -->
                                                     <div class="col-12">
