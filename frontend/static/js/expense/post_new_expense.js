@@ -25,5 +25,6 @@ export async function createExpense(data) {
       throw new Error('Не удалось сохранить запись о расходе');
     }
 
+
   return await res.json();
 }
