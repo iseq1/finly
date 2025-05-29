@@ -12,7 +12,7 @@
 		<link rel="stylesheet" href="/static/css/base/main.css" />
         <!-- Подключение из CDN -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
-        <!--<script type="module" src="/static/js/cashbox/cashbox_form.js"></script>-->
+        <script type="module" src="/static/js/expense/main_history.js"></script>
 
 	</head>
 	<body class="is-preload">
@@ -43,40 +43,104 @@
 									</header>
                                     <form method="post" action="#" data-cashbox-id="" id="cashbox-form">
                                         <div class="row gtr-uniform">
-                                            <div class="col-8 col-12-xsmall">
-                                                
+											<div class="col-8 col-12-xsmall">
+
+                                            </div>
+											<div class="col-4 col-12-xsmall">
+												<h5>Начало интервала фильтра</h5>
+                                            </div>
+											<div class="col-8 col-12-xsmall">
+
                                             </div>
                                             <div class="col-2 col-12-xsmall">
-                                                <select name="demo-category" id="demo-category">
+                                                <select name="demo-category" id="month-start">
                                                     <option value="">- Месяц -</option>
-                                                    <option value="1">Manufacturing</option>
-                                                    <option value="1">Shipping</option>
-                                                    <option value="1">Administration</option>
-                                                    <option value="1">Human Resources</option>
+                                                    <option value="1">Январь</option>
+                                                    <option value="2">Февраль</option>
+                                                    <option value="3">Март</option>
+                                                    <option value="4">Апрель</option>
+                                                    <option value="5">Май</option>
+                                                    <option value="6">Июнь</option>
+                                                    <option value="7">Июль</option>
+                                                    <option value="8">Август</option>
+                                                    <option value="9">Сентябрь</option>
+                                                    <option value="10">Октябрь</option>
+                                                    <option value="11">Ноябрь</option>
+                                                    <option value="12">Декабрь</option>
                                                 </select>
                                             </div>
                                             <div class="col-2 col-12-xsmall">
-                                                <select name="demo-category" id="demo-category">
+                                                <select name="demo-category" id="year-start">
                                                     <option value="">- Год -</option>
-                                                    <option value="1">Manufacturing</option>
-                                                    <option value="1">Shipping</option>
-                                                    <option value="1">Administration</option>
-                                                    <option value="1">Human Resources</option>
+                                                    <option value="2020">2020</option>
+                                                    <option value="2021">2021</option>
+                                                    <option value="2022">2022</option>
+                                                    <option value="2023">2023</option>
+                                                    <option value="2024">2024</option>
+                                                    <option value="2025">2025</option>
+                                                    <option value="2026">2026</option>
+                                                    <option value="2027">2027</option>
+                                                    <option value="2028">2028</option>
+                                                    <option value="2029">2029</option>
+                                                    <option value="2030">2030</option>
                                                 </select>
-                                            </div>                                           
+                                            </div>
+
+                                            <div class="col-8 col-12-xsmall">
+
+                                            </div>
+											<div class="col-4 col-12-xsmall">
+												<h5>Конец интервала фильтра</h5>
+                                            </div>
+											<div class="col-8 col-12-xsmall">
+
+                                            </div>
+                                            <div class="col-2 col-12-xsmall">
+                                                <select name="demo-category" id="month-finish">
+                                                    <option value="">- Месяц -</option>
+                                                    <option value="1">Январь</option>
+                                                    <option value="2">Февраль</option>
+                                                    <option value="3">Март</option>
+                                                    <option value="4">Апрель</option>
+                                                    <option value="5">Май</option>
+                                                    <option value="6">Июнь</option>
+                                                    <option value="7">Июль</option>
+                                                    <option value="8">Август</option>
+                                                    <option value="9">Сентябрь</option>
+                                                    <option value="10">Октябрь</option>
+                                                    <option value="11">Ноябрь</option>
+                                                    <option value="12">Декабрь</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-2 col-12-xsmall">
+                                                <select name="demo-category" id="year-finish">
+                                                    <option value="">- Год -</option>
+                                                    <option value="2020">2020</option>
+                                                    <option value="2021">2021</option>
+                                                    <option value="2022">2022</option>
+                                                    <option value="2023">2023</option>
+                                                    <option value="2024">2024</option>
+                                                    <option value="2025">2025</option>
+                                                    <option value="2026">2026</option>
+                                                    <option value="2027">2027</option>
+                                                    <option value="2028">2028</option>
+                                                    <option value="2029">2029</option>
+                                                    <option value="2030">2030</option>
+                                                </select>
+                                            </div>
                                             <!-- Break -->
                                             <div class="col-9 col-12-xsmall">
-                                                
+
                                             </div>
                                             <div class="col-3 col-12-xsmall">
                                                 <ul class="actions fit">
                                                     <li><input type="submit" value="Применить фильтр" class="primary" /></li>
                                                 </ul>
                                             </div>
-                                           
+
                                         </div>
                                     </form>
-                                    
+
 									<div class="table-wrapper">
                                         <table>
                                             <thead>
@@ -87,8 +151,8 @@
                                                     <th data-sort="user_cashbox_id">Кэш-бокс</th>
                                                     <th data-sort="amount">Сумма</th>
                                                     <th data-sort="comment">Комментарий</th>
-                                                    <th data-sort="source">Адресат</th>
-                                                    <th data-sort="source">Локация</th>
+                                                    <th data-sort="vendor">Адресат</th>
+                                                    <th data-sort="location">Локация</th>
                                                     <th ></th>
                                                 </tr>
                                             </thead>
