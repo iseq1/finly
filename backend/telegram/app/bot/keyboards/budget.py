@@ -4,7 +4,7 @@ class BudgetKeyboard:
 
     @staticmethod
     def get_budget_menu_button():
-        return InlineKeyboardButton(text='Бюджеты', callback_data='budget_menu')
+        return InlineKeyboardButton(text='📊 Бюджеты', callback_data='budget_menu')
 
     @staticmethod
     def get_back_to_budget_menu_button():
