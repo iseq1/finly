@@ -60,7 +60,7 @@ class ProfileKeyboard:
 
     @staticmethod
     def get_profile_menu_button():
-        return InlineKeyboardButton(text='Профиль', callback_data='profile_menu')
+        return InlineKeyboardButton(text='👤 Профиль', callback_data='profile_menu')
 
     @staticmethod
     def get_change_profile_info_button():
