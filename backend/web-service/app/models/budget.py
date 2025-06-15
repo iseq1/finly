@@ -4,6 +4,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float, DateTime, JSON
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel, HistoryModel
+from app.utils.currency_rates import CurrencyRateProvider
 from datetime import datetime
 
 
@@ -43,6 +44,27 @@ class BalanceSnapshot(BaseModel):
             'is_static': is_static,
         }
         return new_bs
+
+    async def get_total_balance(self, to_currency='RUB', rate_provider=None) -> float:
+        if rate_provider is None:
+            rate_provider = CurrencyRateProvider()
+
+        rates = await rate_provider.get_rates()
+        snapshot = self.snapshot or {}
+        total_rub = 0.0
+
+        for acc in snapshot.values():
+            balance = acc.get('balance', 0.0)
+            currency = acc.get('currency', 'RUB')
+            rate = rates.get(currency, 1.0)
+            total_rub += balance * rate
+
+        if to_currency not in rates:
+            to_currency = 'RUB'
+
+        result = total_rub / rates[to_currency]
+        return round(result, 2)
+
 
 class BalanceSnapshotHistory(HistoryModel):
     """
