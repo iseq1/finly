@@ -4,7 +4,7 @@ class TransactionKeyboard:
 
     @staticmethod
     def get_transaction_menu_button():
-        return InlineKeyboardButton(text='Транзакции', callback_data='transaction_menu')
+        return InlineKeyboardButton(text='💸 Транзакции', callback_data='transaction_menu')
 
     @staticmethod
     def get_back_transaction_menu_keyboard():
