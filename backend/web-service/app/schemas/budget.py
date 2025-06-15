@@ -34,6 +34,8 @@ class BalanceSnapshotSchema(BaseSchema):
     snapshot = fields.Dict(keys=fields.Integer, values=fields.Nested(SnapshotSchema), required=True)
     base_currency = fields.String(required=True)
     is_static = fields.Boolean(required=True)
+    total_balance_converted = fields.Float(dump_only=True)
+
 
     @validates("month")
     def validate_month(self, value):
