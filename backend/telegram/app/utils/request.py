@@ -70,7 +70,7 @@ class RequestManager:
         headers['Content-Type'] = f'application/json'
 
         response = await session.request(method, url, headers=headers, **kwargs)
-        print(kwargs)
+
         if response.status_code == 401:
             # Токен устарел, пробуем рефрешнуть
             refresh_headers = {'Authorization': f'Bearer {refresh_token}'}
