@@ -12,8 +12,15 @@ class SendMainMenuMessageHandler(BaseHandler):
         logger.debug(f"[{self.__class__.__name__}] Отправка сообщения с главным меню авторизированному пользователю {event.from_user.id}")
 
         await event.message.edit_text(
-            text="Главное меню:",
-            reply_markup=MainMenuKeyboard().get_main_menu_keyboard()
+            text=(
+                "📋 <b>Главное меню</b>\n\n"
+                "👤 <b>Профиль</b> — управление аккаунтом и настройками\n"
+                "💸 <b>Транзакции</b> — запись и просмотр операций\n"
+                "📊 <b>Бюджеты</b> — настройка целей и контроль расходов\n\n"
+                "Выберите раздел, чтобы продолжить 👇"
+            ),
+            reply_markup=MainMenuKeyboard().get_main_menu_keyboard(),
+            parse_mode="HTML"
         )
 
         return await super().handle(event, state, context)
@@ -24,8 +31,15 @@ class SendProfileHandler(BaseHandler):
         logger.debug(f"[{self.__class__.__name__}] Отправка сообщения с меню профиля авторизированному пользователю {event.from_user.id}")
 
         await event.message.edit_text(
-            text='Меню профиля:',
-            reply_markup=ProfileKeyboard.get_profile_menu_keyboard()
+            text=(
+                "👤 <b>Меню профиля</b>\n\n"
+                "📄 <b>Личные данные</b> — имя, email и другие сведения\n"
+                "🖼️ <b>Аватар пользователя</b> — управление фото профиля\n"
+                "💼 <b>Мои кэш-боксы</b> — управление вашими кошельками\n\n"
+                "⬅️ Вернуться в главное меню можно ниже"
+            ),
+            reply_markup=ProfileKeyboard.get_profile_menu_keyboard(),
+            parse_mode="HTML"
         )
         return await super().handle(event, state, context)
 
@@ -35,10 +49,16 @@ class SendTransactionHandler(BaseHandler):
         logger.debug(f"[{self.__class__.__name__}] Отправка сообщения с меню транзакций авторизированному пользователю {event.from_user.id}")
 
         await event.message.edit_text(
-            text='Меню транзакций:',
-            reply_markup=TransactionKeyboard.get_transaction_menu_keyboard()
+            text=(
+                "💳 <b>Меню транзакций</b>\n\n"
+                "➕ <b>Записать новую транзакцию</b> — добавьте доход или расход\n"
+                "📈 <b>Статистика</b> — анализ ваших трат и поступлений\n"
+                "🕓 <b>История</b> — список всех ваших транзакций\n\n"
+                "⬅️ Вернуться в главное меню можно ниже"
+            ),
+            reply_markup=TransactionKeyboard.get_transaction_menu_keyboard(),
+            parse_mode="HTML"
         )
-        return await super().handle(event, state, context)
 
 
 class SendBudgetHandler(BaseHandler):
@@ -46,7 +66,14 @@ class SendBudgetHandler(BaseHandler):
         logger.debug(f"[{self.__class__.__name__}] Отправка сообщения с меню бюджета авторизированному пользователю {event.from_user.id}")
 
         await event.message.edit_text(
-            text='Меню бюджета:',
-            reply_markup=BudgetKeyboard.get_budget_menu_keyboard()
+            text=(
+                "📊 <b>Меню бюджета</b>\n\n"
+                "📁 <b>Мои бюджеты</b> — просмотреть и управлять текущими бюджетами\n"
+                "🆕 <b>Создать новый бюджет</b> — начните планировать новый финансовый поток\n"
+                "💰 <b>Состояние баланса</b> — мгновенный снимок ваших доступных средств\n\n"
+                "⬅️ Вернуться в главное меню можно ниже"
+            ),
+            reply_markup=BudgetKeyboard.get_budget_menu_keyboard(),
+            parse_mode="HTML"
         )
         return await super().handle(event, state, context)
