@@ -5,14 +5,14 @@ from app.bot.handlers.menu.profile.steps import NotifyUpdateSuccessHandler, Make
     CheckCashboxProvidersHandler, ShowCashboxProvidersHandler, TakingProviderInfoHandler, GetCashboxesByProvider, \
     CheckCashboxesByProviderHandler, ShowCashboxesByProviderHandler, TakingBalanceUserCashboxHandler, \
     TakingNewUserCashboxInfoHandler, TakingCustomNameUserCashboxHandler, TakingNoteUserCashboxHandler, \
-    GenerateNewUserCashboxDataHandler, PostNewUserCashboxHandler, NotifyNewUserCashboxHandler
+    GenerateNewUserCashboxDataHandler, PostNewUserCashboxHandler, NotifyNewUserCashboxHandler, \
+    ConfirmingDeletionUserCashboxHandler, DeleteUserCashboxesHandler, NotifyDeletionUserCashboxHandler
 
 
 class ProfileMenuChain:
 
-    def get_handler_by_step(self, step: int):
-        chain = self.get_profile_chain()
-        current = chain
+    def get_handler_by_step(self, step: int, chain_func):
+        current = chain_func()
         for _ in range(step):
             if current.next_handler is None:
                 return None
@@ -22,6 +22,14 @@ class ProfileMenuChain:
     @staticmethod
     def get_change_profile_info_menu_chain():
         return GetChangeProfileHandler()
+
+    @staticmethod
+    def get_delete_user_cashbox_chain():
+        return ConfirmingDeletionUserCashboxHandler(
+            DeleteUserCashboxesHandler(
+                NotifyDeletionUserCashboxHandler()
+            )
+        )
 
     @staticmethod
     def get_profile_chain():
