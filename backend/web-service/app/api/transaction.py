@@ -118,13 +118,12 @@ class IncomeList(Resource):
         if cashbox_id:
             query = query.filter(Income.user_cashbox_id == cashbox_id)
 
-        # Ограничение по количеству записей
-        if limit:
-            query = query.limit(limit)
-
         # Применяем пагинацию
         pagination = apply_pagination(query, page, per_page)
-        incomes_data = IncomeSchema(many=True).dump(pagination.items)
+
+        items = pagination.items[:limit] if limit else pagination.items
+
+        incomes_data = IncomeSchema(many=True).dump(items)
 
         return {
             'items': incomes_data,
@@ -359,12 +358,12 @@ class ExpenseList(Resource):
         if cashbox_id:
             query = query.filter(Expense.user_cashbox_id == cashbox_id)
 
-        # Ограничение по количеству записей
-        if limit:
-            query = query.limit(limit)
 
         pagination = apply_pagination(query, page, per_page)
-        expenses_data = ExpenseSchema(many=True).dump(pagination.items)
+
+        items = pagination.items[:limit] if limit else pagination.items
+
+        expenses_data = ExpenseSchema(many=True).dump(items)
 
         return {
             'items': expenses_data,
