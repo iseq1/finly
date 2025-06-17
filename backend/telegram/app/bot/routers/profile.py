@@ -77,7 +77,9 @@ async def change_profile_info(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     step = data.get("chain_step", 6)
 
-    handler = ProfileMenuChain().get_handler_by_step(step)
+    chain = ProfileMenuChain()
+
+    handler = chain.get_handler_by_step(step, chain.get_profile_chain)
     if handler:
         result = await handler.handle(callback, state)
         if result is not False:
@@ -94,11 +96,14 @@ async def process_field_choice(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     step = data.get("chain_step", 7)
 
-    handler = ProfileMenuChain().get_handler_by_step(step)
+    chain = ProfileMenuChain()  # создаём объект один раз, если нужно
+
+    handler = chain.get_handler_by_step(step, chain.get_profile_chain)
     if handler:
         result = await handler.handle(callback, state)
         if result is not False:
             await state.update_data(chain_step=step + 1)
+
     await callback.answer()
 
 
@@ -107,7 +112,9 @@ async def handle_field_input(message: Message, state: FSMContext):
     data = await state.get_data()
     step = data.get("chain_step", 8)
 
-    handler = ProfileMenuChain().get_handler_by_step(step)
+    chain = ProfileMenuChain()
+
+    handler = chain.get_handler_by_step(step, chain.get_profile_chain)
     if handler:
         result = await handler.handle(message, state)
         if result is not False:
@@ -167,7 +174,7 @@ async def next_cashbox(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     cashboxes_by_provider = data.get("cashboxes_by_provider", [])
 
-    index = (data.get("cashbox_by_provider_index", 0) + 1) % len(cashboxes_by_provider)
+    index = (data.get("cashbox_by_provider_index", 0) + 1) % len(cashboxes_by_provider['items'])
     await state.update_data(cashbox_by_provider_index=index)
 
     from app.bot.handlers.menu.profile.steps import ShowCashboxesByProviderHandler
@@ -179,7 +186,7 @@ async def next_cashbox(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     cashboxes_by_provider = data.get("cashboxes_by_provider", [])
 
-    index = (data.get("cashbox_by_provider_index", 0) - 1) % len(cashboxes_by_provider)
+    index = (data.get("cashbox_by_provider_index", 0) - 1) % len(cashboxes_by_provider['items'])
     await state.update_data(cashbox_by_provider_index=index)
 
     from app.bot.handlers.menu.profile.steps import ShowCashboxesByProviderHandler
@@ -192,7 +199,7 @@ async def next_cashbox(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     cashboxes_by_provider = data.get("cashboxes_by_provider", [])
 
-    index = (data.get("cashbox_by_provider_index", 0)) % len(cashboxes_by_provider)
+    index = (data.get("cashbox_by_provider_index", 0)) % len(cashboxes_by_provider['items'])
     await state.update_data(cashbox_by_provider_index=index)
     if not data.get('new_user_cashbox', False):
         await state.update_data(new_user_cashbox={})
@@ -253,6 +260,27 @@ async def handle_field_input(message: Message, state: FSMContext):
 @router.callback_query(F.data == 'post_new_user_cashbox')
 async def post_user_cashbox(callback: CallbackQuery, state: FSMContext):
     chain = ProfileMenuChain().get_post_new_user_cashbox_chain()
+    await chain.handle(callback, state)
+
+@router.callback_query(F.data == 'user_cashbox_delete')
+async def post_user_cashbox(callback: CallbackQuery, state: FSMContext):
+    chain = ProfileMenuChain().get_delete_user_cashbox_chain()
+    await chain.handle(callback, state)
+
+@router.callback_query(F.data == 'agreement_for_deletion_user_cashbox')
+async def post_user_cashbox(callback: CallbackQuery, state: FSMContext):
+    chain = ProfileMenuChain()
+    handler = chain.get_handler_by_step(1, chain.get_delete_user_cashbox_chain)
+    if handler:
+        result = await handler.handle(callback, state)
+        if result is not False:
+            await state.update_data(chain_step=1 + 1)
+
+    await callback.answer()
+
+@router.callback_query(F.data == 'disagreement_for_deletion_user_cashbox')
+async def post_user_cashbox(callback: CallbackQuery, state: FSMContext):
+    chain = ProfileMenuChain().get_user_cashbox_chain()
     await chain.handle(callback, state)
 
 
