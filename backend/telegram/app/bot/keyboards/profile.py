@@ -129,6 +129,25 @@ class ProfileKeyboard:
         return InlineKeyboardButton(text='Создать пользовательский кэш-бокс', callback_data='post_new_user_cashbox')
 
     @staticmethod
+    def get_agreement_for_deletion_user_cashbox_button():
+        return InlineKeyboardButton(text='Да, удалить!', callback_data='agreement_for_deletion_user_cashbox')
+
+    @staticmethod
+    def get_disagreement_for_deletion_user_cashbox_button():
+        return InlineKeyboardButton(text='Нет, оставить!', callback_data='disagreement_for_deletion_user_cashbox')
+
+    @staticmethod
+    def get_confirm_for_deletion_user_cashbox_keyboard():
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    ProfileKeyboard.get_agreement_for_deletion_user_cashbox_button(),
+                    ProfileKeyboard.get_disagreement_for_deletion_user_cashbox_button()
+                ]
+            ]
+        )
+
+    @staticmethod
     def get_set_new_user_cashbox_keyboard(flag):
         return InlineKeyboardMarkup(
             inline_keyboard=[
