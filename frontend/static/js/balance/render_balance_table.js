@@ -1,7 +1,8 @@
 export function renderBalanceTable(balanceSnapshots) {
     const tableHead = document.querySelector('thead tr');
     const tableBody = document.querySelector('tbody');
-  
+    const tableTale = document.querySelector('tfoot tr');
+
     // Подготовим форматтеры
     const monthFormatter = new Intl.DateTimeFormat('ru-RU', { month: 'long' });
     const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -10,7 +11,7 @@ export function renderBalanceTable(balanceSnapshots) {
       year: 'numeric'
     });
   
-    const columnDefs = []; // [{ key: '2025-05-static', title: 'Май 2025 (стат.)', snapshot }]
+    const columnDefs = []; // [{ key: '2025-05-static', title: 'Май 2025 (стат.)', snapshot, total }]
     const cashboxMap = new Map(); // id => { name, currency }
   
     for (const snap of balanceSnapshots) {
@@ -27,7 +28,7 @@ export function renderBalanceTable(balanceSnapshots) {
         title = `${dateFormatter.format(updatedAt)}`;
       }
   
-      columnDefs.push({ key, title, snapshot: snap.snapshot });
+      columnDefs.push({ key, title, snapshot: snap.snapshot, total: snap.total_balance_converted });
   
       // Собираем кэшбоксы
       for (const [id, data] of Object.entries(snap.snapshot)) {
@@ -62,7 +63,21 @@ export function renderBalanceTable(balanceSnapshots) {
       row.innerHTML = cells.join('');
       tableBody.appendChild(row);
     }
-  }
+
+    // ==== 3. Футер таблицы ====
+    const totalCells = [];
+
+    totalCells.push('<td><b>Итого (₽)</b></td>');
+
+    for (const col of columnDefs) {
+      const total = col.total || 0;
+      const totalStr = total.toLocaleString('ru-RU', { style: 'currency', currency: 'RUB' });
+      totalCells.push(`<td><b>${totalStr}</b></td>`);
+    }
+
+    tableTale.innerHTML = totalCells.join('');
+
+}
 
   function capitalize(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
