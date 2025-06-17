@@ -683,7 +683,7 @@ class GetUserLatestTransactionInfoHandler(BaseHandler):
         try:
             data = await state.get_data()
             request_manager = RequestManager()
-            data = await request_manager.make_request(method='GET', url=f'transactions/{data.get("transaction_action").get("type")}?limit=5', state=state)
+            data = await request_manager.make_request(method='GET', url=f'transactions/{data.get("transaction_action").get("type")}?limit=10', state=state)
             if context is None:
                 context = {}
             context['transactions'] = data
@@ -728,9 +728,10 @@ class ShowUserLatestTransactionInfoHandler(BaseHandler):
             await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
             return False
 
-    def _format_history(self, transactions: list[dict]) -> str:
+    def _format_history(self, transactions: dict) -> str:
         lines = []
-        for t in transactions:
+        print(transactions)
+        for t in transactions['items']:
             lines.append(
                 f"🧾 ID: {t['id']}\n"
                 f"🏦 Кэш-бокс: {t['user_cashbox']['cashbox']['name']}\n"
@@ -786,6 +787,7 @@ class ShowUserTransactionStatisticHandler(BaseHandler):
     async def handle(self, event, state: FSMContext, context: dict = None):
         logger.debug(f"[{self.__class__.__name__}] Демонстрация статистики транзакций авторизированного пользователя {event.from_user.id}")
         try:
+            print(context['statistic'])
             await event.message.edit_text(f"{(self._format_stat(context['statistic']))}", parse_mode="HTML", reply_markup=TransactionKeyboard.get_statistic_menu_keyboard())
             return True
         except Exception as e:
@@ -796,15 +798,23 @@ class ShowUserTransactionStatisticHandler(BaseHandler):
     def _format_stat(self, transactions: dict) -> str:
         lines = ["📊 <b>Статистика транзакций</b>\n"]
 
-        for category, providers in transactions['statistics'].items():
-            lines.append(f"📂 <b>{category}</b>: {transactions['category_totals'][category]}₽")
-            for provider, amount in providers.items():
-                if amount > 0:
-                    lines.append(f"    └ 🏦 {provider}: {amount}₽")
-            lines.append("")  # пустая строка между категориями
+        # Перебираем категории
+        for category_name, category_data in transactions['statistics'].items():
+            total = transactions['category_totals'].get(category_name, 0)
+            lines.append(f"📂 <b>{category_name}</b>: {round(total, 2)}₽")
 
+            # Перебираем провайдеров внутри категории
+            providers = category_data.get('data', {})
+            for provider_name, provider_data in providers.items():
+                amount = provider_data.get('sum', 0)
+                if amount > 0:
+                    lines.append(f"    └ 🏦 {provider_name}: {round(amount, 2)}₽")
+
+            lines.append("")  # Пустая строка между категориями
+
+        # Итоги по провайдерам
         lines.append("<b>💼 Итоги по провайдерам:</b>")
-        for provider, amount in transactions['provider_totals'].items():
-            lines.append(f"🏦 {provider}: {amount}₽")
+        for provider_name, amount in transactions.get('provider_totals', {}).items():
+            lines.append(f"🏦 {provider_name}: {round(amount, 2)}₽")
 
         return "\n".join(lines)

@@ -179,7 +179,7 @@ class SendWelcomeHandler(BaseHandler):
     async def handle(self, event, state, context=None):
         from app.bot.keyboards.main_manu import MainMenuKeyboard
         logger.debug(f"[{self.__class__.__name__}] Приветственное сообщение отправлено пользователю {event.from_user.id}")
-        await event.message.edit_text("👋 Добро пожаловать!\n\n"
+        await event.answer("👋 Добро пожаловать!\n\n"
                                       "Теперь вам открыт доступ ко всем основным функциям системы.\n"
                                       "Вы можете приступить к работе — просто нажмите кнопку ниже, чтобы перейти в главное меню.\n",
                                       reply_markup=MainMenuKeyboard.go_to_main_menu_keyboard())
