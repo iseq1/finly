@@ -3,8 +3,7 @@ import { fetchIncomeStatistic } from '/static/js/income/fetch_statistic.js';
 export async function renderIncomeStatisticsTable({ start_date, end_date, include_empty_categories = 'true' }) {
   const tbody = document.querySelector('.table-wrapper table tbody');
   const thead = document.querySelector('.table-wrapper table thead tr');
-    console.log('tbody:', tbody);
-    console.log('thead:', thead);
+  const noDataMessage = document.querySelector('.no-data-message');
 
   if (!tbody || !thead) return;
 
@@ -16,19 +15,23 @@ export async function renderIncomeStatisticsTable({ start_date, end_date, includ
   });
 
   const response = await fetchIncomeStatistic(params);
-console.log('Response:', response);
 
   if (!response || !response.statistics) return;
 
   const { statistics, category_totals, provider_totals } = response;
 
   // Собираем список провайдеров и их ID из первой категории
-  const firstCategory = Object.values(statistics)[0];
-  const providers = Object.entries(firstCategory.data).map(([name, info]) => ({
-    name,
-    id: info.id
-  }));
+    const providerMap = new Map();
 
+        for (const category of Object.values(statistics)) {
+          for (const [providerName, info] of Object.entries(category.data)) {
+            if (!providerMap.has(providerName)) {
+              providerMap.set(providerName, { name: providerName, id: info.id });
+            }
+          }
+        }
+
+        const providers = Array.from(providerMap.values());
   // Заголовки с data-provider-id
   thead.innerHTML = `
     <th></th>

@@ -19,8 +19,17 @@ export async function renderIncomeTableWithPagination({
   sort_dir = 'asc'
 }) {
   const tbody = document.querySelector('.table-wrapper table tbody');
-  if (!tbody) return;
+  const tableWrapper = document.querySelector('.table-wrapper');
+  const noDataMessage = document.querySelector('.no-data-message');
+  const container = document.querySelector('.pagination');
 
+  while (container.firstChild) {
+      container.removeChild(container.firstChild);
+  }
+
+  if (!tbody || !tableWrapper || !noDataMessage) return;
+
+  currentFilters = { start_date, end_date, page, per_page, sort_by, sort_dir };
   const params = new URLSearchParams({
     start_date,
     end_date,
@@ -34,41 +43,52 @@ export async function renderIncomeTableWithPagination({
   if (!response || !response.items) return;
 
   const { items, total, pages, has_next, has_prev } = response;
-    console.log({ items, total, pages, has_next, has_prev });
   tbody.innerHTML = '';
 
-  items.forEach(tx => {
-    const tr = document.createElement('tr');
+  if (items.length === 0) {
+    tableWrapper.style.display = 'none';
+    noDataMessage.style.display = 'block';
+    return;
+  }
+  else {
 
-    const date = formatDate(tx.transacted_at);
-    const category = tx.category?.name ?? '';
-    const subcategory = tx.subcategory?.name ?? '';
-    const cashbox = tx.user_cashbox?.cashbox?.name ?? '';
-    const amount = tx.amount ?? 0;
-    const currency = tx.user_cashbox?.cashbox?.currency ?? '';
-    const comment = tx.comment || '';
-    const source = tx.source || '';
+      tableWrapper.style.display = 'block';
+      noDataMessage.style.display = 'none';
 
-    tr.innerHTML = `
-      <td>${date}</td>
-      <td>${category}</td>
-      <td>${subcategory}</td>
-      <td>${cashbox}</td>
-      <td>${amount} ${currency}</td>
-      <td>${comment}</td>
-      <td>${source}</td>
-      <td></td>
-    `;
+      items.forEach(tx => {
+        const tr = document.createElement('tr');
 
-    tbody.appendChild(tr);
-  });
+        const date = formatDate(tx.transacted_at);
+        const category = tx.category?.name ?? '';
+        const subcategory = tx.subcategory?.name ?? '';
+        const cashbox = tx.user_cashbox?.cashbox?.name ?? '';
+        const amount = tx.amount ?? 0;
+        const currency = tx.user_cashbox?.cashbox?.currency ?? '';
+        const comment = tx.comment || '';
+        const source = tx.source || '';
 
-  renderPaginationControls(
-    { page, pages, has_next, has_prev },
-    (newPage) => {
-      renderExpenseTableWithPagination({ ...currentFilters, page: newPage });
-    }
-  );
+        tr.innerHTML = `
+          <td>${date}</td>
+          <td>${category}</td>
+          <td>${subcategory}</td>
+          <td>${cashbox}</td>
+          <td>${amount} ${currency}</td>
+          <td>${comment}</td>
+          <td>${source}</td>
+          <td></td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+      renderPaginationControls(
+        { page, pages, has_next, has_prev },
+        (newPage) => {
+          renderIncomeTableWithPagination({ ...currentFilters, page: newPage });
+        }
+      );
+
+  }
 }
 
 let currentSortBy = 'transacted_at';

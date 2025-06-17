@@ -19,7 +19,16 @@ export async function renderExpenseTableWithPagination({
   sort_dir = 'asc'
 }) {
   const tbody = document.querySelector('.table-wrapper table tbody');
-  if (!tbody) return;
+  const tableWrapper = document.querySelector('.table-wrapper');
+  const noDataMessage = document.querySelector('.no-data-message');
+  const container = document.querySelector('.pagination');
+
+  while (container.firstChild) {
+      container.removeChild(container.firstChild);
+  }
+
+  if (!tbody || !tableWrapper || !noDataMessage) return;
+
   currentFilters = { start_date, end_date, page, per_page, sort_by, sort_dir };
   const params = new URLSearchParams({
     start_date,
@@ -34,10 +43,18 @@ export async function renderExpenseTableWithPagination({
   if (!response || !response.items) return;
 
   const { items, total, pages, has_next, has_prev } = response;
-    console.log({ items, total, pages, has_next, has_prev });
   tbody.innerHTML = '';
 
-  items.forEach(tx => {
+  if (items.length === 0) {
+    tableWrapper.style.display = 'none';
+    noDataMessage.style.display = 'block';
+    return;
+  }
+  else {
+    tableWrapper.style.display = 'block';
+    noDataMessage.style.display = 'none';
+
+    items.forEach(tx => {
     const tr = document.createElement('tr');
 
     const date = formatDate(tx.transacted_at);
@@ -65,12 +82,13 @@ export async function renderExpenseTableWithPagination({
     tbody.appendChild(tr);
   });
 
-  renderPaginationControls(
+    renderPaginationControls(
     { page, pages, has_next, has_prev },
     (newPage) => {
       renderExpenseTableWithPagination({ ...currentFilters, page: newPage });
     }
   );
+  }
 }
 
 let currentSortBy = 'transacted_at';
