@@ -16,7 +16,6 @@ export function showProviderPopup(data) {
         <tr>
           <th>Касса</th>
           <th>Тип</th>
-          <th>Описание</th>
           <th>Сумма</th>
         </tr>
       </thead>
@@ -25,7 +24,6 @@ export function showProviderPopup(data) {
           <tr>
             <td>${stat.cashbox_name}</td>
             <td>${stat.cashbox_type}</td>
-            <td>${stat.description || '-'}</td>
             <td>${stat.total}</td>
           </tr>
         `).join('')}
