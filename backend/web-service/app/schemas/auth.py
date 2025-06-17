@@ -3,7 +3,7 @@
 """
 from marshmallow import Schema, fields, validates, ValidationError, validates_schema, post_load, pre_load
 from app.extensions import ma
-from app.models.auth import User, Role, UserSession, UserAvatar, UserRole, UserCashbox, UserCashboxHistory
+from app.models.auth import User, Role, UserSession, UserAvatar, UserRole, UserCashbox, UserCashboxHistory, UserTelegram
 from app.schemas.base import BaseSchema, HistorySchema
 
 
@@ -42,6 +42,7 @@ class UserBaseSchema(BaseSchema):
     telegram_id = fields.Integer(dump_only=True)
     telegram_username = fields.String(dump_only=True)
     roles = fields.List(fields.Nested(RoleSchema))
+    telegram = fields.Nested('UserTelegramSchema')
 
 
 class UserCreateSchema(UserBaseSchema):
@@ -187,7 +188,7 @@ class UserCashboxSchemaHistory(HistorySchema):
 class UserTelegramSchema(BaseSchema):
     telegram_id = fields.Integer(required=True)
     telegram_username = fields.String(required=True)
-    secret = fields.String(required=False)
+    secret = fields.String(required=False, load_only=True)
 
     @pre_load
     def preprocess_username(self, data, **kwargs):
