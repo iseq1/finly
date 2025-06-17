@@ -8,6 +8,7 @@ from app.utils.request import RequestManager
 from app.exceptions.profile_exceptions import ProfileError, ProfileInfoUnavailable
 from app.exceptions.request_exceptions import TokenStorageError, RequestError
 from app.utils.logger import logger
+from app.utils.image_convertor import img_convertor
 
 
 class GetProfileInfoHandler(BaseHandler):
@@ -114,7 +115,6 @@ class GenerateProfileMessageHandler(BaseHandler):
         logger.debug(f"[{self.__class__.__name__}] Генерация профиля авторизированного пользователя {event.from_user.id}")
         from datetime import datetime
         try:
-            print(context)
             profile_data = context['user_update_data']['user'] if context.get('user_update_data', False) else context['user_data']
             birthday = datetime.fromisoformat(profile_data['birthday']).strftime('%d.%m.%Y')
             last_login = datetime.fromisoformat(profile_data['last_login']).strftime('%d.%m.%Y %H:%M')
@@ -133,7 +133,6 @@ class GenerateProfileMessageHandler(BaseHandler):
                 f"📱 Телефон: {profile_data['phone_number']}\n"
                 f"🎂 День рождения: {birthday}\n"
                 f"📝 Логин в системе: {profile_data['username']}\n"
-                f"💬 Telegram Username: @{profile_data['telegram_username']}\n"
                 f"✅ Активен: {'Да' if profile_data['is_active'] else 'Нет'}\n"
                 f"🕒 Последний вход: {last_login}\n\n"
                 f"💰 Количество кэш-боксов: {cashboxes}\n"
@@ -533,10 +532,10 @@ class ShowCashboxProvidersHandler(BaseHandler):
 
             index = data.get("cashbox_providers_index", 0)
             provider = cashbox_providers[index]
-
             await event.message.delete()
+            provider_logo = provider.get('logo_url')
             await event.message.answer_photo(
-                photo=provider.get('logo_url'),
+                photo=provider_logo if not str(provider_logo).startswith('data:') else img_convertor(provider_logo),
                 reply_markup=ProfileKeyboard().get_provider_cashbox_menu_keyboard(provider.get('name', None))
             )
             return True
@@ -622,9 +621,10 @@ class ShowCashboxesByProviderHandler(BaseHandler):
             data = await state.get_data()
             cashboxes_by_provider = data.get('cashboxes_by_provider')
             index = data.get("cashbox_by_provider_index", 0)
-            cashbox = cashboxes_by_provider[index]
+            cashbox = cashboxes_by_provider['items'][index]
+            print(cashbox)
             await event.message.delete()
-            await event.message.answer(self._format_cashbox(cashbox, index, len(cashboxes_by_provider)), reply_markup=ProfileKeyboard().get_cashboxes_by_provider_menu_keyboard(), parse_mode='MarkdownV2')
+            await event.message.answer(self._format_cashbox(cashbox, index, len(cashboxes_by_provider['items'])), reply_markup=ProfileKeyboard().get_cashboxes_by_provider_menu_keyboard(), parse_mode='MarkdownV2')
         except Exception as e:
             logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при демонстрации кэш-боксов по провайдеру: {e}")
             await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
@@ -678,7 +678,7 @@ class TakingNewUserCashboxInfoHandler(BaseHandler):
             data = await state.get_data()
             cashboxes_by_provider = data.get('cashboxes_by_provider')
             index = data.get("cashbox_by_provider_index", 0)
-            cashbox = cashboxes_by_provider[index]
+            cashbox = cashboxes_by_provider['items'][index]
             new_user_cashbox = data.get('new_user_cashbox')
             if isinstance(event, aiogram.types.Message):
                 await event.answer(self._format_cashbox(cashbox, new_user_cashbox), reply_markup=ProfileKeyboard().get_set_new_user_cashbox_keyboard(new_user_cashbox.get('is_auto_update', False)) if len(new_user_cashbox.items()) < 4 else ProfileKeyboard().get_set_done_new_user_cashbox_keyboard(new_user_cashbox.get('is_auto_update', False)), parse_mode='MarkdownV2')
@@ -743,7 +743,7 @@ class WaitBalanceUserCashboxHandler(BaseHandler):
             data = await state.get_data()
             cashboxes_by_provider = data.get('cashboxes_by_provider')
             index = data.get("cashbox_by_provider_index", 0)
-            cashbox = cashboxes_by_provider[index]
+            cashbox = cashboxes_by_provider['items'][index]
             await event.message.edit_text(text=f'Введите актуальный баланс кэш-бокса.\nБудьте внимательны, что валюта кэш-бокса подразумевает сумму в {cashbox.get("currency")}')
             return False
         except Exception as e:
@@ -871,7 +871,7 @@ class GenerateNewUserCashboxDataHandler(BaseHandler):
             new_user_cashbox = data.get('new_user_cashbox')
             cashboxes_by_provider = data.get('cashboxes_by_provider')
             index = data.get("cashbox_by_provider_index", 0)
-            cashbox = cashboxes_by_provider[index]
+            cashbox = cashboxes_by_provider['items'][index]
 
             post_data = {
               "user_id": data.get('user_id'),
@@ -941,23 +941,83 @@ class NotifyNewUserCashboxHandler(BaseHandler):
             return False
 
 
+class ConfirmingDeletionUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Подтверждение удаления пользовательского кэш-бокса {event.from_user.id}")
+        try:
+            data = await state.get_data()
+            user_cashboxes = data.get('user_cashboxes')
+            index = data.get("user_cashbox_index", 0)
+            cashbox = user_cashboxes[index]
+            await event.message.edit_text(text=f'Вы уверены, что хотите удалить свой кэш-бокс ({cashbox.get("cashbox", {}).get("name", "—")})?', reply_markup=ProfileKeyboard.get_confirm_for_deletion_user_cashbox_keyboard())
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при удалении пользовательского кэш-бокса: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
 
+class DeleteUserCashboxesHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Удаление пользовательского к-б")
+        try:
+            data = await state.get_data()
 
+            user_cashboxes = data.get('user_cashboxes')
+            index = data.get("user_cashbox_index", 0)
+            cashbox = user_cashboxes[index]
+            request_manager = RequestManager()
+            temp = await request_manager.make_request(method='DELETE', url=f'auth/me/cashboxes/{cashbox.get("id", "None")}', state=state)
+            # Очистить стейт и оставить только нужные поля
+            tokens = {
+                'access_token': data.get('access_token'),
+                'refresh_token': data.get('refresh_token'),
+                'user_id': data.get('user_id'),
+            }
+            await state.clear()
+            await state.update_data(**tokens)
+            return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при получении информации о количестве кэш-боксов пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+class NotifyDeletionUserCashboxHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Оповещение об успешном удалении КБ")
+        try:
+            await event.message.edit_text(text=f'Пользовательский кэш-бокс успешно удален!', reply_markup=ProfileKeyboard.get_back_profile_menu_keyboard())
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при получении информации о количестве кэш-боксов пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.message.edit_text(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.message.edit_text("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
