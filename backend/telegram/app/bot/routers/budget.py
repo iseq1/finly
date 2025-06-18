@@ -51,3 +51,8 @@ async def next_cashbox(callback: CallbackQuery, state: FSMContext):
         await handler.handle(callback, state)
 
     await callback.answer()
+
+@router.callback_query(F.data == "get_my_balance_snapshot_menu")
+async def next_cashbox(callback: CallbackQuery, state: FSMContext):
+    chain = BudgetMenuChain().get_user_snapshot_balance_chain()
+    await chain.handle(callback, state)
