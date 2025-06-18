@@ -683,7 +683,7 @@ class GetUserLatestTransactionInfoHandler(BaseHandler):
         try:
             data = await state.get_data()
             request_manager = RequestManager()
-            data = await request_manager.make_request(method='GET', url=f'transactions/{data.get("transaction_action").get("type")}?limit=10', state=state)
+            data = await request_manager.make_request(method='GET', url=f'transactions/{data.get("transaction_action").get("type")}?page=1&per_page=10&sort_by=id&sort_dir=desc', state=state)
             if context is None:
                 context = {}
             context['transactions'] = data
@@ -807,14 +807,15 @@ class ShowUserTransactionStatisticHandler(BaseHandler):
             providers = category_data.get('data', {})
             for provider_name, provider_data in providers.items():
                 amount = provider_data.get('sum', 0)
+                currency = provider_data.get('currency', 0)
                 if amount > 0:
-                    lines.append(f"    └ 🏦 {provider_name}: {round(amount, 2)}₽")
+                    lines.append(f"    └ 🏦 {provider_name}: {round(amount, 2)} {currency}")
 
             lines.append("")  # Пустая строка между категориями
 
         # Итоги по провайдерам
         lines.append("<b>💼 Итоги по провайдерам:</b>")
         for provider_name, amount in transactions.get('provider_totals', {}).items():
-            lines.append(f"🏦 {provider_name}: {round(amount, 2)}₽")
+            lines.append(f"🏦 {provider_name}: {round(amount, 2)}")
 
         return "\n".join(lines)
