@@ -349,7 +349,7 @@ class ExpenseList(Resource):
             'location': Expense.location,
         }
 
-        sort_column = sortable_fields.get(sort_by, Income.transacted_at)
+        sort_column = sortable_fields.get(sort_by, Expense.transacted_at)
         if sort_dir == 'desc':
             query = query.order_by(sort_column.desc())
         else:
@@ -598,6 +598,7 @@ class StatisticsList(Resource):
                     statistics[category_name]['data'][provider_name] = {
                         'id': transaction.user_cashbox.cashbox.provider.id,
                         'sum': 0,
+                        'currency': transaction.user_cashbox.cashbox.currency,
                     }
                 statistics[category_name]['data'][provider_name]['sum'] += amount
             # Добавление категорий без транзакций
@@ -619,7 +620,8 @@ class StatisticsList(Resource):
                         if provider_name not in statistics[category_name]['data']:
                             statistics[category_name]['data'][provider_name] = {
                                 'id': cb.cashbox.provider.id,
-                                'sum': 0
+                                'sum': 0,
+                                'currency': cb.cashbox.currency,
                             }
 
             # Подсчет итогов
