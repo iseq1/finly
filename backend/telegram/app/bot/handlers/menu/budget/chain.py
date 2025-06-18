@@ -1,7 +1,7 @@
 from app.bot.handlers.menu.budget.steps import GetUserBudgetInfoHandler, CheckUserBudgetsInfoHandler, \
     GetCategoryInfoForBudgetsHandler, GetSubcategoryInfoForBudgetsHandler, GetUserCashboxInfoForBudgetsHandler, \
     CheckUserBudgetsAdditionalInfoHandler, ShowUserBudgetsHandler, CheckChosenBudgetHandler, GetDetailBudgetInfoHandler, \
-    ShowDetailBudgetInfoHandler
+    ShowDetailBudgetInfoHandler, GetUserSnapshotHandler, CheckUserSnapshotInfoHandler, ShowUserBalanceSnapshotHandler
 
 
 class BudgetMenuChain:
@@ -34,5 +34,12 @@ class BudgetMenuChain:
                         )
                     )
                 )
+            )
+        )
+
+    def get_user_snapshot_balance_chain(self):
+        return GetUserSnapshotHandler(
+            CheckUserSnapshotInfoHandler(
+                ShowUserBalanceSnapshotHandler()
             )
         )
