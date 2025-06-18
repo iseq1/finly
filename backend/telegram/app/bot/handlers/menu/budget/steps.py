@@ -310,7 +310,6 @@ class ShowDetailBudgetInfoHandler(BaseHandler):
             await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
             return False
 
-
     def _format_budget(self, budget: dict, index: int, total: int) -> str:
         category = budget.get("category", {})
         subcategory = budget.get("subcategory", {})
@@ -329,3 +328,110 @@ class ShowDetailBudgetInfoHandler(BaseHandler):
             f"✏️ <b>Комментарий:</b> {(budget.get('comment', '—'))}\n"
             f"👤 <b>Пользователь:</b> {(user.get('first_name', ''))} {(user.get('last_name', ''))} (@{user.get('username', '—')})"
         )
+
+
+class GetUserSnapshotHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(
+            f"[{self.__class__.__name__}] Получение информации баланса пользователя {event.from_user.id}")
+        try:
+            request_manager = RequestManager()
+            data = await request_manager.make_request(method='GET', url=f'budget/balance_snapshot?year={str(datetime.datetime.utcnow().year)}', state=state)
+            print(data)
+            if context is None:
+                context = {}
+            context["balance_snapshot"] = data
+            return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+class CheckUserSnapshotInfoHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Проверка балансов авторизированного пользователя {event.from_user.id}")
+        try:
+            balance_snapshot = context['balance_snapshot']
+            if len(balance_snapshot) == 0:
+                await event.message.edit_text(text='У вас пока нет ни единой записи баланса!', reply_markup=BudgetKeyboard().get_empty_balance_menu_keyboard())
+            else:
+                await state.update_data(balance_snapshot=balance_snapshot)
+                return await super().handle(event, state, context)
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+class ShowUserBalanceSnapshotHandler(BaseHandler):
+    async def handle(self, event, state: FSMContext, context: dict = None):
+        logger.debug(f"[{self.__class__.__name__}] Демонстрация балансов авторизированного пользователя {event.from_user.id}")
+        try:
+            balance_snapshots = context['balance_snapshot']
+
+            text = self._format_snapshots(balance_snapshots)
+            await event.message.edit_text(
+                text,
+                reply_markup=BudgetKeyboard().get_empty_balance_menu_keyboard(),
+                parse_mode='HTML'
+            )
+            return True
+
+        except TokenStorageError as e:
+            logger.error(f"[{self.__class__.__name__}] Ошибка при работе с токенами: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except RequestError as e:
+            logger.error(
+                f"[{self.__class__.__name__}] Ошибка при обновлении информации пользователя: {event.from_user.id}")
+            text, markup = e.to_user_message_with_markup()
+            await event.answer(text, reply_markup=markup)
+            return False
+        except Exception as e:
+            logger.exception(f"[{self.__class__.__name__}] Неизвестная ошибка при авторизации пользователя: {e}")
+            await event.answer("🚨 Произошла непредвиденная ошибка. Попробуйте снова или позже.")
+            return False
+
+    def _format_snapshots(self, snapshots: dict) -> str:
+        lines = ["📊 <b>Актуальное состояние баланса пользователя</b>\n"]
+
+        snapshot = snapshots['balance_snapshot'][-1]
+        print(snapshot)
+        date = f"{snapshot['month']:02}.{snapshot['year']}"
+        lines.append(f"🗓 <b>Актуальная дата</b> — <b>{date}</b>\n")
+
+        lines.append("💼 <b>Кэш-боксы:</b>")
+        for account_id, account_data in snapshot["snapshot"].items():
+            name = account_data.get("name", "—")
+            currency = account_data.get("currency", "—")
+            balance = account_data.get("balance", 0.0)
+            lines.append(f"📍 <b>{balance} {currency}</b> — {name}")
+
+        lines.append("")  # пустая строка между записями
+
+        lines.append(
+            f"💰 <b>Общий баланс:</b> <b>{snapshot['total_balance_converted']:,.2f} {snapshot['base_currency']}</b>")
+
+        return "\n".join(lines)
