@@ -70,6 +70,16 @@ class BudgetKeyboard:
         )
 
     @staticmethod
+    def get_empty_balance_menu_keyboard():
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    BudgetKeyboard.get_back_to_budget_menu_button()
+                ]
+            ]
+        )
+
+    @staticmethod
     def get_select_user_budget_button():
         return InlineKeyboardButton(text='Выбрать', callback_data='select_user_budget')
 
