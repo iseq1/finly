@@ -4,6 +4,8 @@
 """
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
+load_dotenv()
 
 class Config:
     """Базовый класс конфигурации"""
@@ -32,8 +34,18 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     """Конфигурация для продакшена"""
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'postgresql://user:pass@localhost/erp_db'
+    import urllib.parse
+
+    password = "ycns_sDLjMe/2/QyAGcR2t]r>@wpauw]tPF5"
+    encoded_password = urllib.parse.quote(password)
+    print(encoded_password)
+
+    SQLALCHEMY_DATABASE_URI = (
+        f"postgresql+psycopg2://yegor:{encoded_password}@"
+        "rc1a-bb556tungla99a1m.mdb.yandexcloud.net,rc1d-q003ru2blltomcc3.mdb.yandexcloud.net:6432/prod_db"
+        "?sslmode=verify-full&sslrootcert=C:/Users/GAMER/.postgresql/root.crt"
+    )
+
 
 config = {
     'development': DevelopmentConfig,
