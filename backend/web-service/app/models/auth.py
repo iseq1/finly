@@ -63,7 +63,7 @@ class User(BaseModel):
 
     username = Column(String(64), unique=True, nullable=True)
     email = Column(String(120), unique=True, nullable=False)
-    password_hash = Column(String(128))
+    password_hash = Column(String(1024))
     first_name = Column(String(64))
     last_name = Column(String(64))
     patronymic = Column(String(64))
