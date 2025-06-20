@@ -992,6 +992,15 @@ def seed_transaction():
             'transacted_at': '2025-06-12 12:00:00.053179',
             'source': 'Родионова Л.Н.',
         },
+        {
+            'user_cashbox_id': 1,
+            'category_id': 20,
+            'subcategory_id': 134,
+            'amount': 3300,
+            'comment': 'Перевод от мамы за полуфабрикаты',
+            'transacted_at': '2025-06-17 12:00:00.053179',
+            'source': 'Миронова А.А.',
+        },
     ]
     expense = [
         {
@@ -1564,6 +1573,26 @@ def seed_transaction():
             'vendor': 'Пекарня',
             'location': 'Набережные Челны',
         },
+        {
+            'user_cashbox_id': 1,
+            'category_id': 1,
+            'subcategory_id': 10,
+            'amount': 3300,
+            'comment': 'Домашние манты и котлеты',
+            'transacted_at': '2025-06-16 13:57:54.053179',
+            'vendor': 'Дмитрий Е.',
+            'location': 'Набережные Челны',
+        },
+        {
+            'user_cashbox_id': 1,
+            'category_id': 14,
+            'subcategory_id': 97,
+            'amount': 644,
+            'comment': 'Resident Evil 2: Remake',
+            'transacted_at': '2025-06-16 13:57:54.053179',
+            'vendor': 'Kupikod',
+            'location': 'Набережные Челны',
+        },
     ]
     for item in incomes:
         income_data = IncomeSchema().load(item)
@@ -1576,7 +1605,7 @@ def seed_transaction():
 
 
 def seed_db():
-    app = create_app('development')
+    app = create_app('production')
     with app.app_context():
         seed_categories()
         seed_cashboxes()
