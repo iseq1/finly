@@ -50,13 +50,13 @@ export async function renderIncomeStatisticsTable({ start_date, end_date, includ
     const cells = providers.map(({ name, id: providerId }) => {
       const sum = providerData[name]?.sum ?? 0;
       const dataKey = `${providerId}__${categoryId}`;
-      return `<td data-key="${dataKey}">${sum}</td>`;
+      return `<td data-key="${dataKey}">${sum.toFixed(2)}</td>`;
     }).join('');
 
     row.innerHTML = `
       <th data-category-id="${categoryId}">${categoryName}</th>
       ${cells}
-      <td><strong>${category_totals[categoryName]}</strong></td>
+      <td><strong>${category_totals[categoryName].toFixed(2)}</strong></td>
     `;
 
     tbody.appendChild(row);
