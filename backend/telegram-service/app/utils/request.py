@@ -29,7 +29,10 @@ class RequestManager:
     async def make_request(self, method, url, state, **kwargs):
         logger.debug(f"[{self.__class__.__name__}] [MakeRequest] Попытка создания запроса {method} к серверу от пользователя: {(await state.get_data()).get('user_id')}")
         try:
+            print('begin')
             access_token, refresh_token = await self.get_user_tokens(state)
+            print(access_token, refresh_token)
+
             async with httpx.AsyncClient() as session:
                 status, data, new_access_token, new_refresh_token = await self.make_authenticated_request(
                     session=session,
