@@ -14,6 +14,7 @@ class CurrencyRateHourly(BaseModel):
 
     base_currency = Column(String(5), nullable=False)  # ISO-код исходной валюты (USD)
     target_currency = Column(String(5), nullable=False)  # ISO-код таргетной валюты
+    type = Column(String(32), nullable=False) # Тип валюты - фиат или крипто
     rate = Column(Numeric(precision=12, scale=6), nullable=False) # Сам курс (например, 90.123456)
     timestamp = Column(DateTime, nullable=False) # Время, когда курс был актуален
     source = Column(String(128), nullable=False) # Наименование источника информации о курсе
@@ -35,6 +36,7 @@ class CurrencyRateDaily(BaseModel):
 
     base_currency = Column(String(5), nullable=False)  # ISO-код исходной валюты (USD)
     target_currency = Column(String(5), nullable=False)  # ISO-код базовой валюты
+    type = Column(String(32), nullable=False) # Тип валюты - фиат или крипто
     avg_rate = Column(Numeric(precision=12, scale=6), nullable=False) # Сам курс (например, 90.123456)
     date = Column(Date, nullable=False, index=True) # Дата актуальности курса
     source = Column(String(128), nullable=False) # Наименование источника информации о курсе
