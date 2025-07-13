@@ -11,6 +11,7 @@ class SnapshotSchema(Schema):
     name = fields.String(required=True)
     currency = fields.String(required=True)
     balance = fields.Float(required=True)
+    type = fields.String(required=True)
 
     @validates("currency")
     def validate_currency(self, value):
