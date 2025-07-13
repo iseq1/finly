@@ -16,7 +16,7 @@ FIAT_PAIRS = [
     ("AMD", "USD"), ("BYN", "USD"), ("BGN", "USD"),
     ("BRL", "USD"), ("HUF", "USD"), ("VND", "USD"),
     ("HKD", "USD"), ("GEL", "USD"), ("DKK", "USD"),
-    ("AED", "USD"), ("EUR", "USD"),
+    ("AED", "USD"), ("EUR", "USD"), ("RUB", "USD"),
     ("EGP", "USD"), ("INR", "USD"), ("IDR", "USD"),
     ("KZT", "USD"), ("CAD", "USD"), ("QAR", "USD"),
     ("KGS", "USD"), ("CNY", "USD"), ("MDL", "USD"),
@@ -32,7 +32,8 @@ CRYPTO_PAIRS = [
     ("BTC", "USDT"), ("ETH", "USDT"), ("BNB", "USDT"),
     ("XRP", "USDT"), ("SOL", "USDT"), ("USDC", "USDT"),
     ("TRX", "USDT"), ("DOGE", "USDT"), ("STETH", "USDT"),
-    ("ADA", "USDT"), ("SHIB", "USDT"), ("PEPE", "USDT")
+    ("ADA", "USDT"), ("SHIB", "USDT"), ("PEPE", "USDT"),
+    ("TON", "USDT"),
 ]
 
 
@@ -87,10 +88,11 @@ def calculate_daily_avg_task():
                 CurrencyRateHourly.base_currency,
                 CurrencyRateHourly.target_currency,
                 func.avg(CurrencyRateHourly.rate).label("avg_rate"),
-                CurrencyRateHourly.source
+                CurrencyRateHourly.source,
+                CurrencyRateHourly.type,
             )
             .filter(CurrencyRateHourly.timestamp >= start, CurrencyRateHourly.timestamp <= end)
-            .group_by(CurrencyRateHourly.base_currency, CurrencyRateHourly.target_currency, CurrencyRateHourly.source)
+            .group_by(CurrencyRateHourly.base_currency, CurrencyRateHourly.target_currency, CurrencyRateHourly.source, CurrencyRateHourly.type)
             .all()
         )
 
@@ -99,6 +101,7 @@ def calculate_daily_avg_task():
                 'base_currency': row.base_currency,
                 'target_currency': row.target_currency,
                 'avg_rate': row.avg_rate,
+                'type': row.type,
                 'date': today.isoformat(),
                 'source': row.source,
             })
