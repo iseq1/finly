@@ -4,13 +4,13 @@ API для управления бюджетом
 from datetime import datetime, timedelta
 from flask import request
 from flask_restx import Resource, fields, Namespace
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from marshmallow import ValidationError
 from app.models.budget import BalanceSnapshot, Budget
 from app.models.transaction import Income
 from app.schemas.budget import BalanceSnapshotSchema, SnapshotSchema, BudgetSchema
 from app.utils.auth import permission_required
-from app.utils.currency_rates import CurrencyRateProvider
+from app.utils.currency_rate_service import ExternalCurrencyRateProvider
 from app.utils.helpers import serialize_value
 from app.extensions import db
 
@@ -50,6 +50,13 @@ budget_model = api.model('Budget', {
     'is_recurring': fields.Boolean(required=True, description='Повторяется ли каждый месяц'),
     'is_locked': fields.Boolean(required=True, description='Зафиксирован ли бюджет'),
 })
+
+def get_current_jwt_token():
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        return auth_header.split(' ')[1]
+    return None
+
 
 def get_difference(user_id):
     """
@@ -114,6 +121,7 @@ def make_snapshot(user_id, difference=False):
         user_cashbox.id: SnapshotSchema().load({
             'name': user_cashbox.cashbox.name,
             'currency': user_cashbox.cashbox.currency,
+            'type': user_cashbox.cashbox.type.code,
             'balance': user_cashbox.balance - to_div[user_cashbox.id] + to_sum[user_cashbox.id] if difference and len(to_div)!=0 and len(to_sum) else user_cashbox.balance,
         })
         for user_cashbox in UserCashbox.query.filter_by(user_id=user_id, deleted=False)
@@ -244,10 +252,10 @@ class BalanceSnapshotList(Resource):
             else:
                 # Если нет динамической записи (новый пользователь)
 
-                static_snapshot = BalanceSnapshot.make_balance_snapshot(user_id=user_id, month=current_month, year=current_year, snapshot=make_snapshot(user_id), is_static=True)
+                static_snapshot = BalanceSnapshot.make_balance_snapshot(user_id=user_id, month=current_month, year=current_year, snapshot=make_snapshot(user_id), is_static=True, base_currency='RUB')
                 static_snapshot_data = BalanceSnapshotSchema().load(static_snapshot)
 
-                dynamic_snapshot = BalanceSnapshot.make_balance_snapshot(user_id=user_id, month=current_month, year=current_year, snapshot=make_snapshot(user_id), is_static=False)
+                dynamic_snapshot = BalanceSnapshot.make_balance_snapshot(user_id=user_id, month=current_month, year=current_year, snapshot=make_snapshot(user_id), is_static=False, base_currency='RUB')
                 dynamic_snapshot_data = BalanceSnapshotSchema().load(dynamic_snapshot)
 
                 db.session.add(static_snapshot_data)
@@ -261,15 +269,14 @@ class BalanceSnapshotList(Resource):
                 BalanceSnapshotHistory.log_change(static_snapshot_data, 'create', user_id)
                 BalanceSnapshotHistory.log_change(dynamic_snapshot_data, 'create', user_id)
 
-            rate_provider = CurrencyRateProvider()
+            rate_provider = ExternalCurrencyRateProvider(jwt_token=get_current_jwt_token())
             balance_snapshot = BalanceSnapshot.query.filter_by(user_id=user_id, year = year).all()
             balance_snapshot.sort(key=lambda x: x.month)
-            import asyncio
             for snapshot in balance_snapshot:
-                snapshot.total_balance_converted = asyncio.run(snapshot.get_total_balance(
+                snapshot.total_balance_converted = snapshot.get_total_balance(
                     to_currency='RUB',
                     rate_provider=rate_provider
-                ))
+                )
             return {
                 'message': message,
                 'balance_snapshot': BalanceSnapshotSchema(many=True).dump(balance_snapshot)
