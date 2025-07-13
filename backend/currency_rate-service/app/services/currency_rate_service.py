@@ -44,7 +44,7 @@ class CurrencyRatesService:
         :param type_currency: Тип валюты (fiat / crypto)
         :param base_currency: Валюта, из которой конвертируем (USD)
         :param target_currency: Валюта, в которую конвертируем (например, RUB)
-        :return: dict с полями base_currency, target_currency, rate, timestamp, source
+        :return: dict с полями base_currency, target_currency, rate, type, timestamp, source
 
         """
 
