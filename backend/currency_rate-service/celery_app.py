@@ -18,7 +18,7 @@ def make_celery():
         include=["app.tasks.fetch_tasks", "app.tasks.periodic_tasks"],
     )
 
-    celery.conf.timezone = 'UTC'  # или 'Europe/Moscow' если нужно
+    celery.conf.timezone = 'Europe/Moscow'  # или 'Europe/Moscow' если нужно
     celery.conf.beat_schedule = {
         # Запускать каждый час, например в 0 минут
         "collect-all-rates-every-hour": {
