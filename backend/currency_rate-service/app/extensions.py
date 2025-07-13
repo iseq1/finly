@@ -40,11 +40,11 @@ def init_extensions(app):
     # Инициализация API
     api = Api(
         app,
-        title='DataLens API',
+        title='Currency Rate Service API',
         version='1.0',
-        description='API для визуализации и анализа данных',
-        prefix='/analyze',
-        doc='/analyze/docs',
+        description='API для взаимодействия с сервисом курса валют',
+        prefix='/currency_service',
+        doc='/currency_service/docs',
         authorizations={
             'jwt': {
                 'type': 'apiKey',
