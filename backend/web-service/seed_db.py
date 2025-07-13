@@ -1605,7 +1605,7 @@ def seed_transaction():
 
 
 def seed_db():
-    app = create_app('production')
+    app = create_app('development')
     with app.app_context():
         seed_categories()
         seed_cashboxes()

@@ -6,7 +6,7 @@ from app.extensions import db
 
 def init_db():
     """Инициализация базы данных"""
-    app = create_app('production')
+    app = create_app('development')
     with app.app_context():
         db.drop_all()
         print("Все таблицы удалены.")
