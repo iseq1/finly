@@ -3,7 +3,7 @@
 """
 import re
 from marshmallow import Schema, fields, validates, ValidationError, validates_schema, post_load
-from app.schemas.base import BaseSchema, HistorySchema
+from app.schemas.base import BaseSchema, HistorySchema, PaginationSchema
 from app.models.currency_rate import CurrencyRateHourly, CurrencyRateDaily
 
 
@@ -18,6 +18,7 @@ class CurrencyRateHourlySchema(BaseSchema):
 
     base_currency = fields.String(required=True)  # ISO-код исходной валюты (USD)
     target_currency = fields.String(required=True)  # ISO-код таргетной валюты
+    type = fields.String(required=True) # Тип валюты - фиат или крипто
     rate = fields.Decimal(required=True, as_string=True, places=6) # Сам курс (например, 90.123456)
     timestamp = fields.DateTime(required=True) # Время, когда курс был актуален
     source = fields.String(required=True) # Наименование источника информации о курсе
@@ -44,6 +45,12 @@ class CurrencyRateHourlySchema(BaseSchema):
         if len(value) == 0 or len(value) > 256:
             raise ValidationError("Некорректное наименование источника информации о курсе")
 
+    @validates("type")
+    def validate_type(self, value):
+        """Проверка корректности наименование типа валюты"""
+        if value not in ('fiat', 'crypto'):
+            raise ValidationError("Некорректное наименование типа валюты")
+
     @validates_schema
     def validate_currency_pair(self, data, **kwargs):
         if data.get('base_currency') == data.get('target_currency'):
@@ -62,6 +69,7 @@ class CurrencyRateDailySchema(BaseSchema):
     base_currency = fields.String(required=True)  # ISO-код исходной валюты (USD)
     target_currency = fields.String(required=True)  # ISO-код таргетной валюты
     avg_rate = fields.Decimal(required=True, as_string=True, places=6) # Сам курс (например, 90.123456)
+    type = fields.String(required=True) # Тип валюты - фиат или крипто
     date = fields.Date(required=True) # Дата актуальности курса
     source = fields.String(required=True) # Наименование источника информации о курсе
 
@@ -87,7 +95,23 @@ class CurrencyRateDailySchema(BaseSchema):
         if len(value) == 0 or len(value) > 256:
             raise ValidationError("Некорректное наименование источника информации о курсе")
 
+    @validates("type")
+    def validate_type(self, value):
+        """Проверка корректности наименование типа валюты"""
+        if value not in ('fiat', 'crypto'):
+            raise ValidationError("Некорректное наименование типа валюты")
+
     @validates_schema
     def validate_currency_pair(self, data, **kwargs):
         if data.get('base_currency') == data.get('target_currency'):
             raise ValidationError("Базовая и таргетная валюта не могут совпадать.")
+
+class CurrencyRateFilterSchema(BaseSchema, PaginationSchema):
+    """Схема для фильтрации инвесторов"""
+    base = fields.String(required=False, description="Базовая валюта")
+    target = fields.String(required=False, description="Таргетная валюта")
+    type = fields.String(required=False, description="Тип валюты: fiat/crypto")
+    timestamp = fields.String(required=False, description="Дата и время актуального курса")
+    date = fields.Date(required=False, description="Дата актуального курса")
+    latest = fields.Bool(required=False, missing=False)
+
