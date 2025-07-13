@@ -68,6 +68,7 @@ class CBRSource(CurrencyRateSource):
                 "base_currency": base_currency,
                 "target_currency": target_currency,
                 "rate": rate,
+                "type": 'fiat',
                 "timestamp": timestamp,
                 "source": self.NAME
             }

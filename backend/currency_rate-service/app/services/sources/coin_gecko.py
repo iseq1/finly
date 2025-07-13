@@ -41,6 +41,7 @@ class CoinGeckoSource(CurrencyRateSource):
                 "base_currency": base_currency,
                 "target_currency": target_currency,
                 "rate": Decimal(str(rate)),
+                "type": 'crypto',
                 "timestamp": datetime.utcnow(),
                 "source": self.NAME
             }

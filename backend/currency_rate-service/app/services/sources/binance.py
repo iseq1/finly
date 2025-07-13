@@ -39,6 +39,7 @@ class BinanceSource(CurrencyRateSource):
                 "base_currency": base,
                 "target_currency": target,
                 "rate": Decimal(str(data["price"])),
+                "type": 'crypto',
                 "timestamp": datetime.utcnow(),
                 "source": self.NAME
             }

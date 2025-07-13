@@ -52,6 +52,7 @@ class ACBSource(CurrencyRateSource):
                 "base_currency": base_currency.upper(),
                 "target_currency": target_currency.upper(),
                 "rate": Decimal(str(rate)),
+                "type": 'fiat',
                 "timestamp": datetime.utcnow(),
                 "source": self.NAME
             }
