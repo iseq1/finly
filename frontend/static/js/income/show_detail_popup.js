@@ -22,7 +22,7 @@ export function showDetailPopup(data) {
           <th>Подкатегория</th>
           <th>Транзакции</th>
           <th>Сумма</th>
-          <th>%</th>
+          <th>Соотношение</th>
         </tr>
       </thead>
       <tbody>
@@ -33,14 +33,14 @@ export function showDetailPopup(data) {
               <ul>
                 ${stat.transactions.map(tx => `
                   <li>
-                    <strong>${tx.amount}₽</strong> — ${tx.comment || 'Без комментария'}<br>
+                    <strong>${tx.amount.toFixed(2)} ${tx.currency} <i>${tx.FX ? '('+tx.FX.total.toFixed(2) + ' ' + tx.FX.target_currency + ')' : ''}</i></strong> — ${tx.comment || 'Без комментария'}<br>
                     <small>${new Date(tx.date).toLocaleDateString()} | ${tx.cashbox_name}</small>
                   </li>
                 `).join('')}
               </ul>
             </td>
-            <td>${stat.total}₽</td>
-            <td>${stat.percentage}%</td>
+            <td>${stat.total.toFixed(2)} ${stat.total_currency}</td>
+            <td>${stat.percentage.toFixed(2)} %</td>
           </tr>
         `).join('')}
       </tbody>
