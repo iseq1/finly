@@ -90,7 +90,10 @@ def convert_through_bridge(base, target, type_, model):
 
     if base_to_usd and target_to_usd:
         # Вычисляем через отношение к USD
-        rate = base_to_usd.rate / target_to_usd.rate
+        base_rate = getattr(base_to_usd, 'rate', None) or getattr(base_to_usd, 'avg_rate', None)
+        target_rate = getattr(target_to_usd, 'rate', None) or getattr(target_to_usd, 'avg_rate', None)
+
+        rate = base_rate / target_rate
         base_time = getattr(base_to_usd, 'timestamp', None) or getattr(base_to_usd, 'date')
         target_time = getattr(target_to_usd, 'timestamp', None) or getattr(target_to_usd, 'date')
         timestamp = max(base_time, target_time)
