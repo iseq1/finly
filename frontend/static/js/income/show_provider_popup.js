@@ -17,6 +17,8 @@ export function showProviderPopup(data) {
           <th>Касса</th>
           <th>Тип</th>
           <th>Сумма</th>
+          <th>Валюта</th>
+          <th>Соотношение</th>
         </tr>
       </thead>
       <tbody>
@@ -24,7 +26,13 @@ export function showProviderPopup(data) {
           <tr>
             <td>${stat.cashbox_name}</td>
             <td>${stat.cashbox_type}</td>
-            <td>${stat.total}</td>
+            <td>
+              ${stat.total.toFixed(2)}${stat.FX ? ' ⇒ ' + stat.FX.total.toFixed(2) : ''}
+            </td>
+            <td>
+              ${stat.currency}${stat.FX ? ' ⇒ ' + stat.FX.target_currency : ''}
+            </td>
+            <td>${stat.percentage.toFixed(2)} %</td>
           </tr>
         `).join('')}
       </tbody>
