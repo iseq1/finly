@@ -66,7 +66,7 @@ export async function renderIncomeStatisticsTable({ start_date, end_date, includ
   const totalRow = document.createElement('tr');
   totalRow.innerHTML = `
     <th><strong>Итого</strong></th>
-    ${providers.map(({ id }) => `<td data-provider-id="${id}"><strong>${provider_totals[providers.find(p => p.id === id).name]}</strong></td>`).join('')}
+    ${providers.map(({ id }) => `<td data-provider-id="${id}"><strong>${provider_totals[providers.find(p => p.id === id).name].toFixed(2)}</strong></td>`).join('')}
     <td></td>
   `;
   tbody.appendChild(totalRow);
