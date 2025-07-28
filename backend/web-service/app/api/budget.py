@@ -10,6 +10,7 @@ from app.models.budget import BalanceSnapshot, Budget
 from app.models.transaction import Income
 from app.schemas.budget import BalanceSnapshotSchema, SnapshotSchema, BudgetSchema
 from app.utils.auth import permission_required
+from app.utils.auth import get_current_jwt_token
 from app.utils.currency_rate_service import ExternalCurrencyRateProvider
 from app.utils.helpers import serialize_value
 from app.extensions import db
@@ -51,11 +52,6 @@ budget_model = api.model('Budget', {
     'is_locked': fields.Boolean(required=True, description='Зафиксирован ли бюджет'),
 })
 
-def get_current_jwt_token():
-    auth_header = request.headers.get('Authorization', '')
-    if auth_header.startswith('Bearer '):
-        return auth_header.split(' ')[1]
-    return None
 
 
 def get_difference(user_id):
