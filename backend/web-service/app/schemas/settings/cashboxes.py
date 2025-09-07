@@ -31,7 +31,7 @@ class CashboxSchema(BaseSchema):
         """Проверка корректности наименования кэш-бокса"""
         if len(value) >= 100 or len(value) == 0:
             raise ValidationError("Некорректное наименование кэш-бокса")
-        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z\s\-]+$', value)):
+        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z0-9\s\-«»]+$', value)):
             raise ValidationError("Использование недопустимых символов запрещено")
 
     @validates("currency")
@@ -69,15 +69,15 @@ class CashboxTypeSchema(BaseSchema):
         """Проверка корректности наименования кэш-бокса"""
         if len(value) >= 100 or len(value) == 0:
             raise ValidationError("Некорректное наименование типа кэш-бокса")
-        if not bool(re.match(r'^[А-ЯЁа-яё\s]+$', value)):
+        if not bool(re.match(r'^[А-ЯЁа-яё\s-]+$', value)):
             raise ValidationError("Использование недопустимых символов запрещено")
 
     @validates("code")
-    def validate_name(self, value):
+    def validate_code(self, value):
         """Проверка корректности кода кэш-бокса"""
         if len(value) > 50 or len(value) == 0:
             raise ValidationError("Некорректный код типа кэш-бокса")
-        if not bool(re.match(r'^[A-Za-z\s]+$', value)):
+        if not bool(re.match(r'^[A-Za-z\s_]+$', value)):
             raise ValidationError("Использование недопустимых символов запрещено")
 
 
@@ -121,7 +121,7 @@ class CashboxProviderSchema(BaseSchema):
         """Проверка корректности полного наименования провайдера кэш-бокса"""
         if len(value) >= 100 or len(value) == 0:
             raise ValidationError("Некорректное полное наименование провайдера кэш-бокса")
-        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z\s\-]+$', value)):
+        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z\s\-,.]+$', value)):
             raise ValidationError("Использование недопустимых символов запрещено")
 
     @validates("color")

@@ -63,7 +63,7 @@ class User(BaseModel):
 
     username = Column(String(64), unique=True, nullable=True)
     email = Column(String(120), unique=True, nullable=False)
-    password_hash = Column(String(128))
+    password_hash = Column(String(1024))
     first_name = Column(String(64))
     last_name = Column(String(64))
     patronymic = Column(String(64))
@@ -71,8 +71,6 @@ class User(BaseModel):
     birthday = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     last_login = Column(DateTime)
-    telegram_id = Column(Integer, unique=True, nullable=True)
-    telegram_username = Column(String(128), unique=True, nullable=True)
 
     # Связи
     roles = relationship('Role', secondary='user_role', backref='users')
@@ -94,6 +92,17 @@ class User(BaseModel):
         :return: bool
         """
         return any(role.has_permission(permission) for role in self.roles)
+
+
+class UserTelegram(BaseModel):
+    """Модель тг-пользователя"""
+    __tablename__ = 'user_telegram'
+
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False, unique=True)
+    telegram_id = Column(Integer, unique=True, nullable=True)
+    telegram_username = Column(String(128), unique=True, nullable=True)
+
+    user = relationship('User', backref=db.backref('telegram', uselist=False))
 
 
 class UserHistory(HistoryModel):

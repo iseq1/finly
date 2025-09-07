@@ -25,13 +25,15 @@ import { logout } from '/static/js/security/token.js';
   container.innerHTML = "";
 
   for (const box of cashboxes) {
+    console.log(box.cashbox.provider.color)
     const article = document.createElement("article");
     article.classList.add("box", "transparent-after");
     article.style.position = "static";
+    article.style.border = "solid 5px " + box.cashbox.provider.color;
 
     article.innerHTML = `
       <a href="#" class="image">
-        <img src="${box.cashbox.icon}" alt="" />
+        <img src="${box.cashbox.provider.logo_url}" alt="" style="width: 100%;"/>
       </a>
       <h3>${box.cashbox.name}</h3>
       <p>${box.custom_name || "Без кастомного наименования"}</p>

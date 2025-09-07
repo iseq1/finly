@@ -7,7 +7,10 @@ export async function fetchCashboxIncomes(userCashboxId) {
 
   const url = new URL(`${API_URL}/transactions/income`);
   url.searchParams.set('cashbox', userCashboxId);
-  url.searchParams.set('limit', 5);
+  url.searchParams.set('sort_by ', 'transacted_at');
+  url.searchParams.set('sort_dir', 'desc');
+  url.searchParams.set('page', 1);
+  url.searchParams.set('per_page', 5);
 
   const res = await fetch(url.toString(), {
     headers: {

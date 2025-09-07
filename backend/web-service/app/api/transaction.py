@@ -8,8 +8,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from app.models.transaction import Income, Expense
 from app.schemas.transaction import IncomeSchema, ExpenseSchema
-from app.utils.auth import permission_required
-from app.utils.helpers import serialize_value
+from app.utils.auth import permission_required, get_current_jwt_token
+from app.utils.currency_rate_service import ExternalCurrencyRateProvider
+from app.utils.helpers import serialize_value, apply_pagination
 from app.extensions import db
 
 api = Namespace('transactions', description='Операции управления транзакциями пользователя')
@@ -50,6 +51,10 @@ class IncomeList(Resource):
                  'limit': 'Количество последних записей (опционально)',
                  'start_date': "Дата начала периода (YYYY-MM-DD)",
                  'end_date': "Дата конца периода (YYYY-MM-DD)",
+                 'page': 'Номер страницы',
+                 'per_page': 'Кол-во элементов на странице',
+                 'sort_by': 'Поле для сортировки',
+                 'sort_dir': 'Направление сортировки',
              }
              )
     def get(self):
@@ -71,6 +76,10 @@ class IncomeList(Resource):
         cashbox_id = request.args.get('cashbox', type=int)
         start_date = request.args.get('start_date', default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
         end_date = request.args.get('end_date', default=def_end_date) + 'T23:59:59.999Z'  # Конец диапазона временного интервала
+        page = request.args.get('page', default=1, type=int)
+        per_page = request.args.get('per_page', default=10, type=int)
+        sort_by = request.args.get('sort_by', 'transacted_at')
+        sort_dir = request.args.get('sort_dir', 'asc')
 
         # Валидация данных
         from app.schemas.base import DateRangeSchema
@@ -89,18 +98,43 @@ class IncomeList(Resource):
         if end_date:
             query = query.filter(Income.transacted_at <= end_date)
 
-        # Сортировка по дате (последние сверху)
-        query = query.order_by(Income.transacted_at.desc())
+
+        # Сортировка
+        sortable_fields = {
+            'transacted_at': Income.transacted_at,
+            'category_id': Income.category_id,
+            'subcategory_id': Income.subcategory_id,
+            'user_cashbox_id': Income.user_cashbox_id,
+            'amount': Income.amount,
+            'comment': Income.comment,
+            'source': Income.source,
+        }
+
+        sort_column = sortable_fields.get(sort_by, Income.transacted_at)
+        if sort_dir == 'desc':
+            query = query.order_by(sort_column.desc())
+        else:
+            query = query.order_by(sort_column.asc())
 
         if cashbox_id:
             query = query.filter(Income.user_cashbox_id == cashbox_id)
 
-        # Ограничение по количеству записей
-        if limit:
-            query = query.limit(limit)
+        # Применяем пагинацию
+        pagination = apply_pagination(query, page, per_page)
 
-        incomes = query.all()
-        return IncomeSchema(many=True).dump(incomes)
+        items = pagination.items[:limit] if limit else pagination.items
+
+        incomes_data = IncomeSchema(many=True).dump(items)
+
+        return {
+            'items': incomes_data,
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
 
     @jwt_required()
     # @permission_required('transaction.manage')
@@ -255,6 +289,10 @@ class ExpenseList(Resource):
                  'limit': 'Количество последних записей (опционально)',
                  'start_date': "Дата начала периода (YYYY-MM-DD)",
                  'end_date': "Дата конца периода (YYYY-MM-DD)",
+                 'page': 'Номер страницы',
+                 'per_page': 'Кол-во элементов на странице',
+                 'sort_by': 'Поле для сортировки',
+                 'sort_dir': 'Направление сортировки',
              }
              )
     def get(self):
@@ -278,6 +316,10 @@ class ExpenseList(Resource):
                                       default=def_start_date) + 'T00:00:00.000Z'  # Начало диапазона временного интервала
         end_date = request.args.get('end_date',
                                     default=def_end_date) + 'T23:59:59.999Z'  # Конец диапазона временного интервала
+        page = request.args.get('page', default=1, type=int)
+        per_page = request.args.get('per_page', default=10, type=int)
+        sort_by = request.args.get('sort_by', 'transacted_at')
+        sort_dir = request.args.get('sort_dir', 'asc')
 
         # Валидация данных
         from app.schemas.base import DateRangeSchema
@@ -296,18 +338,43 @@ class ExpenseList(Resource):
         if end_date:
             query = query.filter(Expense.transacted_at <= end_date)
 
-        # Сортировка по дате (последние сверху)
-        query = query.order_by(Expense.transacted_at.desc())
+        # Сортировка
+        sortable_fields = {
+            'transacted_at': Expense.transacted_at,
+            'category_id': Expense.category_id,
+            'subcategory_id': Expense.subcategory_id,
+            'user_cashbox_id': Expense.user_cashbox_id,
+            'amount': Expense.amount,
+            'comment': Expense.comment,
+            'vendor': Expense.vendor,
+            'location': Expense.location,
+        }
+
+        sort_column = sortable_fields.get(sort_by, Expense.transacted_at)
+        if sort_dir == 'desc':
+            query = query.order_by(sort_column.desc())
+        else:
+            query = query.order_by(sort_column.asc())
 
         if cashbox_id:
             query = query.filter(Expense.user_cashbox_id == cashbox_id)
 
-        # Ограничение по количеству записей
-        if limit:
-            query = query.limit(limit)
 
-        expenses = query.all()
-        return ExpenseSchema(many=True).dump(expenses)
+        pagination = apply_pagination(query, page, per_page)
+
+        items = pagination.items[:limit] if limit else pagination.items
+
+        expenses_data = ExpenseSchema(many=True).dump(items)
+
+        return {
+            'items': expenses_data,
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
 
     @jwt_required()
     # @permission_required('transaction.manage')
@@ -483,6 +550,8 @@ class StatisticsList(Resource):
             order = request.args.get('order', default='asc')  # Направление сортировки (по умолчанию - по возрастанию)
             user_id = get_jwt_identity()  # ID-пользователя
 
+            target_currency = 'RUB' # Пока RUB, позднее либо дефолтная валюта для юзера, либо выбранная валюта в фильтре
+
             # Валидация данных
             from app.schemas.base import DateRangeSchema
             DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
@@ -515,19 +584,30 @@ class StatisticsList(Resource):
                 transactions.sort(key=lambda x: x.category.name, reverse=(order == 'desc'))
 
             statistics = {}
+            rate_provider = ExternalCurrencyRateProvider(jwt_token=get_current_jwt_token())
 
             # Агрегация транзакций по провайдерам
             for transaction in transactions:
                 category_name = transaction.category.name
                 provider_name = transaction.user_cashbox.cashbox.provider.name
                 amount = transaction.amount
+                transaction_currency = transaction.user_cashbox.cashbox.currency
+                rate_type = transaction.user_cashbox.cashbox.type.code
+                transaction_date = transaction.transacted_at.strftime('%Y-%m-%d')
 
                 if category_name not in statistics:
-                    statistics[category_name] = {}
-                if provider_name not in statistics[category_name]:
-                    statistics[category_name][provider_name] = 0
-
-                statistics[category_name][provider_name] += amount
+                    statistics[category_name] = {
+                        'id': transaction.category.id,
+                        'code': transaction.category.code,
+                        'data': {}
+                    }
+                if provider_name not in statistics[category_name]['data']:
+                    statistics[category_name]['data'][provider_name] = {
+                        'id': transaction.user_cashbox.cashbox.provider.id,
+                        'sum': 0,
+                        'currency': transaction.user_cashbox.cashbox.currency,
+                    }
+                statistics[category_name]['data'][provider_name]['sum'] += amount if transaction_currency == target_currency else amount * rate_provider.get_rate(base=transaction_currency, target=target_currency, type_='fiat' if rate_type != 'crypto' else 'crypto', date=transaction_date)
 
             # Добавление категорий без транзакций
             if include_empty:
@@ -538,20 +618,28 @@ class StatisticsList(Resource):
                 for category in all_categories:
                     category_name = category.name
                     if category_name not in statistics:
-                        statistics[category_name] = {}
+                        statistics[category_name] = {
+                            'id': category.id,
+                            'code': category.code,
+                            'data': {},
+                        }
                     for cb in user_cashboxes:
-                        provider_name = cb.cashbox.provider.name  #
-                        if provider_name not in statistics[category_name]:
-                            statistics[category_name][provider_name] = 0
+                        provider_name = cb.cashbox.provider.name
+                        if provider_name not in statistics[category_name]['data']:
+                            statistics[category_name]['data'][provider_name] = {
+                                'id': cb.cashbox.provider.id,
+                                'sum': 0,
+                                'currency': cb.cashbox.currency,
+                            }
 
             # Подсчет итогов
             category_totals = {}
             provider_totals = {}
 
-            for category, providers in statistics.items():
-                category_totals[category] = sum(providers.values())
-                for provider, amount in providers.items():
-                    provider_totals[provider] = provider_totals.get(provider, 0) + amount
+            for category, category_data in statistics.items():
+                category_totals[category] = sum([provider_data['sum'] for provider, provider_data in category_data['data'].items()])
+                for provider, provider_data in category_data['data'].items():
+                    provider_totals[provider] = provider_totals.get(provider, 0) + provider_data['sum']
 
             return {
                 'message': 'Статистика успешно получена',
@@ -594,6 +682,8 @@ class StatisticsCategoryList(Resource):
             order = request.args.get('order', default='asc')  # Направление сортировки (по умолчанию - по возрастанию)
             user_id = get_jwt_identity()  # ID-пользователя
 
+            target_currency = 'RUB' # Пока RUB, позднее либо дефолтная валюта для юзера, либо выбранная валюта в фильтре
+
             # Валидация данных
             from app.schemas.base import DateRangeSchema
             DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
@@ -635,6 +725,8 @@ class StatisticsCategoryList(Resource):
             elif sort_by == 'cashbox':
                 transactions.sort(key=lambda x: x.user_cashbox.cashbox.name, reverse=(order == 'desc'))
 
+            rate_provider = ExternalCurrencyRateProvider(jwt_token=get_current_jwt_token())
+
             # Группировка транзакций по подкатегориям
             subcat_data = defaultdict(lambda: {"total": 0, "transactions": []})
 
@@ -645,7 +737,12 @@ class StatisticsCategoryList(Resource):
                 provider = cashbox.provider
 
                 subcat_data[subcategory.id]["subcategory_name"] = subcategory.name
-                subcat_data[subcategory.id]["total"] += item.amount
+                subcat_data[subcategory.id]["total"] += item.amount if cashbox.currency == target_currency else item.amount * rate_provider.get_rate(
+                                                                                        base=cashbox.currency,
+                                                                                        target=target_currency,
+                                                                                        type_='fiat' if cashbox.type.code != 'crypto' else 'crypto',
+                                                                                        latest=True)
+
 
                 if transaction_type == 'income':
                     subcat_data[subcategory.id]["transactions"].append({
@@ -657,8 +754,16 @@ class StatisticsCategoryList(Resource):
                         "cashbox": {
                             "user_cashbox_id": user_cashbox.id,
                             "cashbox_name": cashbox.name,
-                            "provider_name": provider.name
-                        }
+                            "provider_name": provider.name,
+                            "currency": cashbox.currency
+                        },
+                        "FX": None if cashbox.currency == target_currency else dict(target_currency=target_currency,
+                                                                                    total= item.amount * rate_provider.get_rate(
+                                                                                        base=cashbox.currency,
+                                                                                        target=target_currency,
+                                                                                        type_='fiat' if cashbox.type.code != 'crypto' else 'crypto',
+                                                                                        latest=True))
+
                     })
                 else:
                     subcat_data[subcategory.id]["transactions"].append({
@@ -671,17 +776,28 @@ class StatisticsCategoryList(Resource):
                         "cashbox": {
                             "user_cashbox_id": user_cashbox.id,
                             "cashbox_name": cashbox.name,
-                            "provider_name": provider.name
-                        }
+                            "provider_name": provider.name,
+                            "currency": cashbox.currency
+                        },
+                        "FX": None if cashbox.currency == target_currency else dict(target_currency=target_currency,
+                                                                                    total=item.amount * rate_provider.get_rate(
+                                                                                        base=cashbox.currency,
+                                                                                        target=target_currency,
+                                                                                        type_='fiat' if cashbox.type.code != 'crypto' else 'crypto',
+                                                                                        latest=True))
                     })
 
             # Сборка финального списка
+            total_sum = sum([data["total"] for data in subcat_data.values()])
             statistics = []
             for subcat_id, data in subcat_data.items():
+                percentage = (data["total"] / total_sum * 100) if total_sum > 0 else 0
                 statistics.append({
                     "subcategory_id": subcat_id,
                     "subcategory_name": data["subcategory_name"],
                     "total": data["total"],
+                    "total_currency": target_currency,
+                    "percentage": round(percentage, 2),
                     "transactions": data["transactions"]
                 })
 
@@ -728,6 +844,8 @@ class StatisticsCashboxList(Resource):
             order = request.args.get('order', default='asc')  # Направление сортировки (по умолчанию - по возрастанию)
             user_id = get_jwt_identity()  # ID-пользователя
 
+            target_currency = 'RUB' # Пока RUB, позднее либо дефолтная валюта для юзера, либо выбранная валюта в фильтре
+
             # Валидация данных
             from app.schemas.base import DateRangeSchema
             DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
@@ -773,6 +891,7 @@ class StatisticsCashboxList(Resource):
 
             # Группировка транзакций по кэш-боксам
             subcat_data = defaultdict(lambda: {"total": 0, "transactions": []})
+            rate_provider = ExternalCurrencyRateProvider(jwt_token=get_current_jwt_token())
 
             for item in transactions:
                 user_cashbox = item.user_cashbox
@@ -780,15 +899,20 @@ class StatisticsCashboxList(Resource):
 
                 subcat_data[cashbox.id]["cashbox_name"] = cashbox.name
                 subcat_data[cashbox.id]["cashbox_type"] = cashbox.type.name
+                subcat_data[cashbox.id]["cashbox_type_code"] = cashbox.type.code
                 subcat_data[cashbox.id]["currency"] = cashbox.currency
                 subcat_data[cashbox.id]["description"] = cashbox.description
                 subcat_data[cashbox.id]["icon"] = cashbox.icon
                 subcat_data[cashbox.id]["total"] += item.amount
 
+            total_sum = sum([data["total"] if data["currency"] == target_currency else data["total"] * rate_provider.get_rate(base=data["currency"], target=target_currency, type_='fiat' if data["cashbox_type_code"] != 'crypto' else 'crypto', latest=True) for data in subcat_data.values()])
 
             # Сборка финального списка
             statistics = []
             for subcat_id, data in subcat_data.items():
+                converted_total = data["total"] * rate_provider.get_rate(base=data["currency"], target=target_currency, type_='fiat' if data["cashbox_type_code"] != 'crypto' else 'crypto', latest=True) if data["currency"] != target_currency else None
+                percentage = ((data["total"] if data["currency"] == target_currency else converted_total) / total_sum * 100) if total_sum > 0 else 0
+
                 statistics.append({
                     "cashbox_id": subcat_id,
                     "cashbox_name": data["cashbox_name"],
@@ -797,7 +921,8 @@ class StatisticsCashboxList(Resource):
                     "description": data["description"],
                     "icon": data["icon"],
                     "total": data["total"],
-                    # "transactions": data["transactions"]
+                    "percentage": round(percentage, 2),
+                    "FX": None if data["currency"] == target_currency else dict(target_currency=target_currency, total=converted_total)
                 })
 
             # Получение провайдера
@@ -844,6 +969,8 @@ class StatisticsDetailsList(Resource):
             category_id, provider_id = map(int, id.split('-'))
             user_id = get_jwt_identity()  # ID-пользователя
 
+            target_currency = 'RUB' # Пока RUB, позднее либо дефолтная валюта для юзера, либо выбранная валюта в фильтре
+
             # Валидация данных
             from app.schemas.base import DateRangeSchema
             DateRangeSchema().load({'start_date': start_date, 'end_date': end_date})
@@ -879,7 +1006,7 @@ class StatisticsDetailsList(Resource):
 
             transactions = query.all()
 
-            print(transactions)
+            rate_provider = ExternalCurrencyRateProvider(jwt_token=get_current_jwt_token())
 
             # Сортировка
             # if sort_by == 'name':
@@ -898,12 +1025,21 @@ class StatisticsDetailsList(Resource):
                 cashbox = item.user_cashbox.cashbox
 
                 subcat_data[subcat.id]["subcategory_name"] = subcat.name
-                subcat_data[subcat.id]["total"] += item.amount
+                subcat_data[subcat.id]["total"] += item.amount if cashbox.currency == target_currency else item.amount * rate_provider.get_rate(
+                                                                                    base=cashbox.currency,
+                                                                                    target=target_currency, type_='fiat' if cashbox.type.code != 'crypto' else 'crypto', latest=True)
                 subcat_data[subcat.id]["transactions"].append({
                     "amount": item.amount,
+                    "currency": cashbox.currency,
                     "date": item.transacted_at.isoformat(),
                     "cashbox_name": cashbox.name,
-                    "comment": item.comment
+                    "comment": item.comment,
+                    "FX": None if cashbox.currency == target_currency else dict(target_currency=target_currency,
+                                                                                total=item.amount * rate_provider.get_rate(
+                                                                                    base=cashbox.currency,
+                                                                                    target=target_currency,
+                                                                                    type_='fiat' if cashbox.type.code != 'crypto' else 'crypto',
+                                                                                    latest=True))
                 })
 
             # Формирование итоговой статистики
@@ -916,6 +1052,7 @@ class StatisticsDetailsList(Resource):
                     "subcategory_id": subcat_id,
                     "subcategory_name": data["subcategory_name"],
                     "total": data["total"],
+                    "total_currency": target_currency,
                     "percentage": round(percentage, 2),
                     "transactions": data["transactions"]
                 })

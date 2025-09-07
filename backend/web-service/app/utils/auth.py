@@ -166,6 +166,17 @@ def log_action(action_type):
         return wrapper
     return decorator
 
+
+def get_current_jwt_token():
+    """
+
+    """
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        return auth_header.split(' ')[1]
+    return None
+
+
 def make_default_user(id):
     """
 

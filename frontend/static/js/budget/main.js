@@ -21,21 +21,32 @@ import { logout } from '/static/js/security/token.js';
   const cashboxes = await fetchUserBudgetsData();
 
   if (!cashboxes || cashboxes.length === 0) {
-    const article = document.createElement("article");
-    article.classList.add("box", "transparent-after");
-    article.style.position = "static";
+    const article1 = document.createElement("article");
+    const article2 = document.createElement("article");
+    const article3 = document.createElement("article");
+    article1.classList.add( "col-3", "col-12-small");
+    article1.style.position = "static";
+    article2.classList.add("box", "transparent-after", "col-6", "col-12-small");
+    article2.style.position = "static";
+    article3.classList.add( "col-3", "col-12-small");
+    article3.style.position = "static";
 
-    article.innerHTML = `
-      <div class="col-4 col-12-small"></div>
-      <div class="col-4 col-12-small">
-        <div class="box">
-          <p>У вас пока нет ни одного зарегистрированного бюджета.</p>
-          <p>Самое время исправить это!</p>
-        </div>
+    article1.innerHTML = ``;
+    article3.innerHTML = ``;
+
+    article2.innerHTML = `
+        <h4 >
+          За текущий период у Вас нет ни одного активного бюджета!
+        </h4>
+        <h4 >
+          Это можно легко исправить!
+        </h4>
+
       </div>
-      <div class="col-4 col-12-small"></div>
     `;
-    container.appendChild(article);
+    container.appendChild(article1);
+    container.appendChild(article2);
+    container.appendChild(article3);
     return;
   }
   const formatter = new Intl.DateTimeFormat('ru-RU', { month: 'long' });

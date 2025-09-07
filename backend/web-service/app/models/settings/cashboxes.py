@@ -1,7 +1,7 @@
 """
 Модели для кэш-боксов
 """
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel, HistoryModel
 
@@ -17,7 +17,7 @@ class Cashbox(BaseModel):
     provider_id = Column(Integer, ForeignKey('cashbox_provider.id'), nullable=False)  # ID-провайдера кэш-бокса (Банк/Биржа/Сервис)
     currency = Column(String(5), nullable=False)  # Валюта кэш-бокса
     description = Column(String(255))  # Описание кэш-бокса
-    icon = Column(String(512), nullable=True)  # Иконка кэш-бокса
+    icon = Column(String(2048), nullable=True)  # Иконка кэш-бокса
     is_active = Column(Boolean(), default=True)  # Активен ли кэш-бокс
 
     # Связи
@@ -73,8 +73,8 @@ class CashboxProvider(BaseModel):
 
     name = Column(String(99), nullable=False)  # Наименование провайдера (Т-Банк)
     full_name = Column(String(256), nullable=False)  # Полное наименование провайдера
-    logo_url = Column(String(512), nullable=False)  # Ссылка на логотип провайдера
-    alt_logo_url = Column(String(512), nullable=True)  # Ссылка на альтернативный логотип провайдера
+    logo_url = Column(Text, nullable=False)  # Ссылка на логотип провайдера
+    alt_logo_url = Column(Text, nullable=True)  # Ссылка на альтернативный логотип провайдера
     color = Column(String(7), nullable=False)  # Основной цвет провайдера
     second_color = Column(String(7), nullable=True)  # Второй цвет провайдера
     alt_color = Column(String(7), nullable=False)  # Альтернативный цвет провайдера

@@ -4,6 +4,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Float, DateTime, JSON
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel, HistoryModel
+from app.utils.currency_rate_service import ExternalCurrencyRateProvider
 from datetime import datetime
 
 
@@ -24,14 +25,15 @@ class BalanceSnapshot(BaseModel):
         return f"<BalanceSnapshot {self.month}/{self.year}, {self.is_static}>"
 
     @staticmethod
-    def make_balance_snapshot(user_id, month, year, snapshot, is_static):
+    def make_balance_snapshot(user_id, month, year, snapshot, is_static, base_currency='RUB'):
         """
         Создает снимок баланса для указанного пользователя.
         :param user_id: идентификатор пользователя
         :param month: месяц снимка (1-12)
         :param year: год для снимка (2025)
         :param snapshot: словарь со значением баланса
-        :param is_static: Если True, снимок считается статичным; если False, динамическим
+        :param is_static: если True, снимок считается статичным; если False, динамическим
+        :param base_currency: базовая валюта баланса, RUB по-умолчанию
         :return: cловарь с данными о снимке баланса
         """
         new_bs = {
@@ -39,10 +41,61 @@ class BalanceSnapshot(BaseModel):
             'month': month,
             'year': year,
             'snapshot': snapshot,
-            'base_currency': 'RUB',
+            'base_currency': base_currency,
             'is_static': is_static,
         }
         return new_bs
+
+    def get_total_balance(self, to_currency='RUB', rate_provider=None) -> float:
+        if rate_provider is None:
+            rate_provider = ExternalCurrencyRateProvider()
+
+        snapshot = self.snapshot or {}
+        total_in_usd = 0.0
+        total_in_usdt = 0.0
+
+        for acc in snapshot.values():
+            balance = acc.get('balance', 0.0)
+            currency = acc.get('currency', 'RUB')
+            currency_type = acc.get('type', 'fiat')
+
+            if currency == 'USD' and currency_type != 'crypto':
+                total_in_usd += balance
+            elif currency == 'USDT' and currency_type == 'crypto':
+                total_in_usdt += balance
+            else:
+                try:
+                    if currency_type != 'crypto':
+                        rate = rate_provider.get_rate(base=currency, target='USD', type_='fiat', latest=True)
+                        total_in_usd += balance * rate
+                    elif currency_type == 'crypto':
+                        rate = rate_provider.get_rate(base=currency, target='USDT', type_='crypto', latest=True)
+                        total_in_usdt += balance * rate
+                except Exception as e:
+                    print(f"[WARN] Не удалось получить курс {currency} → USD/USDT: {e}")
+                    continue
+
+        # Приводим всё к общей целевой валюте
+        result = 0.0
+
+        try:
+            if total_in_usd:
+                usd_to_target = 1.0 if to_currency == 'USD' else rate_provider.get_rate(base='USD', target=to_currency,
+                                                                                        type_='fiat', latest=True)
+                result += total_in_usd * usd_to_target
+
+            if total_in_usdt:
+                usdt_to_target = 1.0 if to_currency == 'USDT' else rate_provider.get_rate(base='USDT',
+                                                                                          target=to_currency,
+                                                                                          type_='crypto', latest=True)
+                result += total_in_usdt * usdt_to_target
+
+        except Exception as e:
+            print(f"[ERROR] Не удалось сконвертировать в {to_currency}: {e}")
+            return 0.0
+
+        return round(result, 2)
+
 
 class BalanceSnapshotHistory(HistoryModel):
     """

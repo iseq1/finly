@@ -9,6 +9,7 @@ marshmallow-sqlalchemy
 python-dotenv
 flask-jwt-extended
 python-dateutil
+aiohttp
 
 # Зависимости для базы данных
 psycopg2-binary  # для PostgreSQL

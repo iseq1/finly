@@ -34,7 +34,7 @@ class CategorySchema(BaseSchema):
         """Проверка корректности наименования категории"""
         if len(value) >= 100 or len(value) == 0:
             raise ValidationError("Некорректное наименование категории")
-        if not bool(re.match(r'^[А-ЯЁа-яё\s]+$', value)):
+        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z\s,.-]+$', value)):
             raise ValidationError("Использование недопустимых символов запрещено")
 
 
@@ -61,7 +61,7 @@ class SubcategorySchema(BaseSchema):
         """Проверка корректности наименования подкатегории"""
         if len(value) >= 100 or len(value) == 0:
             raise ValidationError("Некорректное наименование подкатегории")
-        if not bool(re.match(r'^[А-ЯЁа-яё\s]+$', value)):
+        if not bool(re.match(r'^[А-ЯЁа-яёA-Za-z\s,.-]+$', value)):
             raise ValidationError("Использование недопустимых символов запрещено")
 
 

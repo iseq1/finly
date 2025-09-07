@@ -10,7 +10,8 @@ from flask_jwt_extended import (
     create_access_token, get_jwt, set_access_cookies
 )
 from marshmallow import ValidationError
-from app.models.auth import User, Role, UserSession, UserAvatar, UserRole, UserCashbox, get_all_permissions
+from app.models.auth import User, Role, UserSession, UserAvatar, UserRole, UserCashbox, get_all_permissions, \
+    UserTelegram
 from app.schemas.auth import (
     UserCreateSchema, UserUpdateSchema, LoginSchema,
     TokenSchema, RoleSchema, PermissionSchema, UserAvatarSchema, UserRoleSchema, UserCashboxSchema, UserBaseSchema,
@@ -142,7 +143,6 @@ class TelegramRegister(Resource):
         """Регистрация нового пользователя посредством Telegram-ID"""
         try:
             data = request.json
-            print(data)
 
             if data.get('secret') != SECRET_TELEGRAM_AUTH_KEY:
                 return {"message": "Неверный секрет"}, 403
@@ -150,11 +150,11 @@ class TelegramRegister(Resource):
             tg_user_data = UserTelegramSchema().load(data)
 
             # Проверка существования пользователя
-            query_filter = (User.telegram_id == tg_user_data['telegram_id'])
+            query_filter = (UserTelegram.telegram_id == tg_user_data['telegram_id'])
             if tg_user_data['telegram_username']:
-                query_filter = query_filter | (User.telegram_username == tg_user_data['telegram_username'])
+                query_filter = query_filter | (UserTelegram.telegram_username == tg_user_data['telegram_username'])
 
-            if User.query.filter(query_filter).first():
+            if UserTelegram.query.filter(query_filter).first():
                 message = 'Пользователь с таким telegram-ID уже существует'
                 if tg_user_data['telegram_username']:
                     message = 'Пользователь с таким именем пользователя или telegram-ID уже существует'
@@ -169,10 +169,12 @@ class TelegramRegister(Resource):
             user.set_password(def_user['password'])
             user.is_active = True
             user.last_login = datetime.now(timezone.utc)
-            user.telegram_id = tg_user_data['telegram_id']
-            user.telegram_username = tg_user_data['telegram_username']
-
             db.session.add(user)
+            db.session.commit()
+
+            tg_user = UserTelegram(user_id=user.id, telegram_id=tg_user_data['telegram_id'], telegram_username=tg_user_data['telegram_username'])
+
+            db.session.add(tg_user)
             db.session.commit()
 
             # Создание токенов
@@ -210,16 +212,18 @@ class TelegramLogin(Resource):
             if not telegram_id:
                 return {"message": "Telegram ID обязателен"}, 400
 
-            user = User.query.filter_by(telegram_id=telegram_id).first()
+            tg_user = UserTelegram.query.filter_by(telegram_id=telegram_id).first()
 
-            if not user:
+            if not tg_user:
                 return {"message": "Пользователь с таким Telegram ID не найден"}, 404
+
+            user = User.query.filter_by(id=tg_user.user_id).first()
 
             if not user.is_active:
                 return {'message': 'Пользователь деактивирован'}, 401
 
-            if user.telegram_username != data.get('telegram_username'):
-                user.telegram_username = data.get('telegram_username')
+            if tg_user.telegram_username != data.get('telegram_username'):
+                tg_user.telegram_username = data.get('telegram_username')
 
             # Обновление времени последнего входа
             user.last_login = datetime.utcnow()
@@ -893,22 +897,20 @@ class UserTelegramList(Resource):
             user_telegram_data = UserTelegramSchema().load(request.json)
             user_id = get_jwt_identity()
 
-            user = User.query.get_or_404(user_id)
-
             # Проверка, что Telegram ID не занят другим пользователем
-            if User.query.filter(User.telegram_id == user_telegram_data["telegram_id"], User.id != user_id).first():
+            if UserTelegram.query.filter_by(deleted=False).filter(UserTelegram.telegram_id == user_telegram_data["telegram_id"], UserTelegram.user_id != user_id).first():
                 return {"message": "Этот Telegram ID уже используется другим пользователем"}, 406
 
-            user.telegram_id = user_telegram_data["telegram_id"]
-            user.telegram_username = user_telegram_data["telegram_username"]
+            tg_user = UserTelegram(user_id=user_id, telegram_id=user_telegram_data["telegram_id"], telegram_username=user_telegram_data["telegram_username"])
 
+            db.session.add(tg_user)
             db.session.commit()
 
             # Логирование действий
 
             return {
                 'message': 'Телеграм успешно привязан к пользователю',
-                'user': UserBaseSchema().dump(user)
+                'user': UserBaseSchema().dump(User.query.get_or_404(user_id))
             }, 201
 
         except ValidationError as e:
@@ -924,23 +926,32 @@ class UserTelegramList(Resource):
             user_telegram_data = UserTelegramSchema().load(request.json)
             user_id = get_jwt_identity()
 
-            user = User.query.get_or_404(user_id)
-
             # Проверка, что Telegram ID не занят другим пользователем
-            if User.query.filter(User.telegram_id == user_telegram_data["telegram_id"], User.id != user_id).first():
-                return {"message": "Этот Telegram ID уже используется другим пользователем"}, 400
+            if UserTelegram.query.filter_by(deleted=False).filter(
+                    UserTelegram.telegram_id == user_telegram_data["telegram_id"],
+                    UserTelegram.user_id != user_id).first():
+                return {"message": "Этот Telegram ID уже используется другим пользователем"}, 406
 
-            user.telegram_id = user_telegram_data["telegram_id"]
-            user.telegram_username = user_telegram_data["telegram_username"]
+            # Обновление данных о Telegram аккаунте
+            user_tg = UserTelegram.query.filter_by(user_id=user_id, deleted=False).first()
+
+            if user_tg:
+                user_tg.telegram_id = user_telegram_data["telegram_id"]
+                user_tg.telegram_username = user_telegram_data["telegram_username"]
+            else:
+                # Если данных нет, создаем новую запись
+                user_tg = UserTelegram(user_id=user_id, telegram_id=user_telegram_data["telegram_id"],
+                                       telegram_username=user_telegram_data["telegram_username"])
+                db.session.add(user_tg)
 
             db.session.commit()
 
             # Логирование действий
 
             return {
-                'message': 'Телеграм успешно привязан к пользователю',
-                'user': UserBaseSchema().dump(user)
-            }, 201
+                'message': 'Телеграм успешно обновлён',
+                'user': UserBaseSchema().dump(User.query.get_or_404(user_id))
+            }, 200
 
         except ValidationError as e:
             return {'message': 'Ошибка валидации', 'errors': e.messages}, 400
@@ -949,19 +960,19 @@ class UserTelegramList(Resource):
     @api.doc(security='jwt')
     def delete(self):
         """Удаление связи пользователя и телеграм-аккаунта"""
-        user = User.query.get_or_404(get_jwt_identity())
+        user_id = get_jwt_identity()
 
-        if user.telegram_id or user.telegram_username:
-            user.telegram_id = None
-            user.telegram_username = None
-            db.session.commit()
-            return {"message": "Связь с Telegram удалена"}, 200
-        else:
-            return {"message": "У пользователя нет связи с TG"}, 400
+        # Поиск записи о Telegram аккаунте пользователя
+        user_tg = UserTelegram.query.filter_by(user_id=user_id, deleted=False).first()
 
+        if not user_tg:
+            return {"message": "Запись о Telegram аккаунте не найдена"}, 404
 
+        # Удаление записи
+        # user_tg.deleted = True  # Можно пометить как удалённый
+        db.session.delete(user_tg)  # Физически удалить запись
+        db.session.commit()
 
-
-
-
-
+        return {
+            'message': 'Телеграм успешно отвязан от пользователя'
+        }, 200

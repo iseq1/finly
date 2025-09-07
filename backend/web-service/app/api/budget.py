@@ -4,12 +4,14 @@ API для управления бюджетом
 from datetime import datetime, timedelta
 from flask import request
 from flask_restx import Resource, fields, Namespace
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from marshmallow import ValidationError
 from app.models.budget import BalanceSnapshot, Budget
 from app.models.transaction import Income
 from app.schemas.budget import BalanceSnapshotSchema, SnapshotSchema, BudgetSchema
 from app.utils.auth import permission_required
+from app.utils.auth import get_current_jwt_token
+from app.utils.currency_rate_service import ExternalCurrencyRateProvider
 from app.utils.helpers import serialize_value
 from app.extensions import db
 
@@ -50,6 +52,8 @@ budget_model = api.model('Budget', {
     'is_locked': fields.Boolean(required=True, description='Зафиксирован ли бюджет'),
 })
 
+
+
 def get_difference(user_id):
     """
     Возвращает суммы доходов и расходов пользователя по его кэш-боксам за текущий месяц.
@@ -58,12 +62,28 @@ def get_difference(user_id):
     """
     current_year = datetime.now().year
     current_month = datetime.now().month
-
     from app.models.transaction import Income, Expense
-    income_in_current_month = Income.query.filter(Income.user_id == user_id, Income.deleted == False,
-                                                  Income.transacted_at >= f'{current_year}-{current_month}-01T00:00:00.000Z')
-    expense_in_current_month = Expense.query.filter(Expense.user_id == user_id, Expense.deleted == False,
-                                                    Expense.transacted_at >= f'{current_year}-{current_month}-01T00:00:00.000Z')
+    from app.models.auth import UserCashbox
+
+    income_in_current_month = (
+        db.session.query(Income)
+        .join(UserCashbox)
+        .filter(
+            UserCashbox.user_id == user_id,
+            Income.deleted == False,
+            Income.transacted_at >= f'{current_year}-{current_month}-01T00:00:00.000Z'
+        )
+    ).all()
+
+    expense_in_current_month = (
+        db.session.query(Expense)
+        .join(UserCashbox)
+        .filter(
+            UserCashbox.user_id == user_id,
+            Expense.deleted == False,
+            Expense.transacted_at >= f'{current_year}-{current_month}-01T00:00:00.000Z'
+        )
+    ).all()
 
     to_div = {}
     for income in income_in_current_month:
@@ -97,7 +117,8 @@ def make_snapshot(user_id, difference=False):
         user_cashbox.id: SnapshotSchema().load({
             'name': user_cashbox.cashbox.name,
             'currency': user_cashbox.cashbox.currency,
-            'balance': user_cashbox.balance - to_div[user_cashbox.id] + to_sum[user_cashbox.id] if difference else user_cashbox.balance,
+            'type': user_cashbox.cashbox.type.code,
+            'balance': user_cashbox.balance - to_div[user_cashbox.id] + to_sum[user_cashbox.id] if difference and len(to_div)!=0 and len(to_sum) else user_cashbox.balance,
         })
         for user_cashbox in UserCashbox.query.filter_by(user_id=user_id, deleted=False)
     }
@@ -156,6 +177,8 @@ class BalanceSnapshotList(Resource):
                     old_data = last_snapshot.to_dict()
 
                     last_snapshot.is_static = True
+                    last_snapshot.month = last_snapshot.month + 1 if last_snapshot.month != 12 else 1
+                    last_snapshot.year = last_snapshot.year + 1 if last_snapshot.month == 1 else last_snapshot.year
                     dynamic_snapshot_data = BalanceSnapshotSchema().load(BalanceSnapshot.make_balance_snapshot(user_id=user_id, month= current_month, year=current_year, snapshot=make_snapshot(user_id, True), is_static=False))
 
                     db.session.add(dynamic_snapshot_data)
@@ -225,10 +248,10 @@ class BalanceSnapshotList(Resource):
             else:
                 # Если нет динамической записи (новый пользователь)
 
-                static_snapshot = BalanceSnapshot.make_balance_snapshot(user_id=user_id, month=current_month, year=current_year, snapshot=make_snapshot(user_id), is_static=True)
+                static_snapshot = BalanceSnapshot.make_balance_snapshot(user_id=user_id, month=current_month, year=current_year, snapshot=make_snapshot(user_id), is_static=True, base_currency='RUB')
                 static_snapshot_data = BalanceSnapshotSchema().load(static_snapshot)
 
-                dynamic_snapshot = BalanceSnapshot.make_balance_snapshot(user_id=user_id, month=current_month, year=current_year, snapshot=make_snapshot(user_id), is_static=False)
+                dynamic_snapshot = BalanceSnapshot.make_balance_snapshot(user_id=user_id, month=current_month, year=current_year, snapshot=make_snapshot(user_id), is_static=False, base_currency='RUB')
                 dynamic_snapshot_data = BalanceSnapshotSchema().load(dynamic_snapshot)
 
                 db.session.add(static_snapshot_data)
@@ -242,10 +265,14 @@ class BalanceSnapshotList(Resource):
                 BalanceSnapshotHistory.log_change(static_snapshot_data, 'create', user_id)
                 BalanceSnapshotHistory.log_change(dynamic_snapshot_data, 'create', user_id)
 
-
+            rate_provider = ExternalCurrencyRateProvider(jwt_token=get_current_jwt_token())
             balance_snapshot = BalanceSnapshot.query.filter_by(user_id=user_id, year = year).all()
             balance_snapshot.sort(key=lambda x: x.month)
-
+            for snapshot in balance_snapshot:
+                snapshot.total_balance_converted = snapshot.get_total_balance(
+                    to_currency='RUB',
+                    rate_provider=rate_provider
+                )
             return {
                 'message': message,
                 'balance_snapshot': BalanceSnapshotSchema(many=True).dump(balance_snapshot)
